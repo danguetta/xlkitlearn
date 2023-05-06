@@ -1,13 +1,5 @@
 # XLKitLearn
-## ERROR REPORT
-**Some errors were found while processing your latest push. Please fix them before proceeding as follows**
-  - Pull the latest commit (made by the VBA robot) from github
-  - Make your changes
-  - Push back to github
-
-The specific errors I found were as follows:
-  - Error updating the version number in the HTML file; the error was name 'expected_files' is not defined
----
+## Version: 11.01
 <!-- DO ***NOT*** EDIT ANYTHING ABOVE THIS LINE, INCLUDING THIS COMMENT -->
 
 This repo contains the latest version of [XLKitLearn](https://www.xlkitlearn.com). Please see the website for authorship, license, installation, and usage information - this repo provides information for those interested in seeing the add-in's code and/or contributing to it.

@@ -31,7 +31,7 @@ import pandas as pd
 ADDIN_FILE       = 'XLKitLearn.xltm'
 
 # The name of the file containing the Python code
-PYTHON_FILE      = 'xlkitlearn.py'
+PYTHON_FILE      = 'XLKitLearn.py'
 
 # The name of the readme file
 README_FILE      = 'README.md'

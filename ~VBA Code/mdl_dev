@@ -1,0 +1,112 @@
+option explicit
+
+' ###############################################################
+' #  mdl_dev                                                    #
+' #                                                             #
+' #  deals with all code used while devving the add-in,         #
+' #  including managing debug mode, a code loader, and prep for #
+' #  prod                                                       #
+' ###############################################################
+
+public sub check_debug_mode()
+    ' this function checks whether the file format is xltm (53). if so, it runs
+    ' the workbook in debug mode (unless we have just prepped for prod).
+    ' else it runs it in normal mode.
+    '
+    ' alternatively, if the name of the file contains the word debugg (with two gs)
+    ' the file will launch in debug mode
+    
+    if (instr(1, activeworkbook.name, "debugg") > 0) or _
+                        ((activeworkbook.fileformat = 53) and _
+                            (wb_var("prepped_for_prod") <> "prod")) then
+        debug_mode = true
+        sht_code.visible = -1
+        sht_conf.visible = -1
+    else
+        ' deep-hide the code sheet and the configuration sheet
+        debug_mode = false
+        sht_code.visible = 2
+        sht_conf.visible = 2
+    end if
+end sub
+
+sub load_code()
+    ' this function - which is only triggered in debug mode - loads code from
+    ' xlkitlearn.py and puts it into the code sheet to ensure the code is
+    ' synchronized
+    
+    ' save the original calculation mode and disable automatic calculations
+    dim original_calc_mode
+    original_calc_mode = application.calculation
+    application.calculation = xlcalculationmanual
+    
+    ' read the code from the xlkitlearn.py file
+    if fileexists(thisworkbook.path & "/xlkitlearn.py") then
+        open thisworkbook.path & "/xlkitlearn.py" for input as #1
+    else
+        msgbox "could not find code file xlkitlearn.py.", vbcritical
+        exit sub
+    end if
+    
+    dim code_text as string
+    code_text = input(lof(1), 1)
+    
+    close #1
+    
+    ' split the line on newlines
+    dim split_text as variant
+    split_text = split(code_text, vblf)
+    
+    ' clear the worksheet
+    thisworkbook.sheets("code_text").range("2:" & thisworkbook.sheets("code_text").usedrange.rows.count).delete
+    
+    ' output the rest of the code
+    dim i as integer
+    for i = 0 to ubound(split_text)
+        thisworkbook.sheets("code_text").range("a" & (i + 2)) = split_text(i)
+    next i
+    
+    ' restore the original calculation mode
+    application.calculation = original_calc_mode
+end sub
+
+public sub prepare_for_prod()
+    ' this function prepares the workbook for production, and closes the notebook.
+    ' the github script will make sure this has been run before allowing a final
+    ' commit
+    
+    ' clear the settings and email
+    range(cell_current_settings).value = sample_settings
+    range(cell_current_text_settings).value = ""
+    range(cell_email).value = ""
+    
+    ' delete any spare sheets hanging around
+    dim delete_sheets as new collection
+    dim i as integer
+    for i = 1 to thisworkbook.sheets.count
+        if (thisworkbook.sheets(i).name <> "add-in") _
+                and (thisworkbook.sheets(i).name <> "xlwings.conf") _
+                and (thisworkbook.sheets(i).name <> "code_text") _
+                and (thisworkbook.sheets(i).name <> "boston_housing") then
+            delete_sheets.add thisworkbook.sheets(i).name
+        end if
+    next i
+    application.displayalerts = false
+    for i = 1 to delete_sheets.count
+        thisworkbook.sheets(delete_sheets.item(i)).delete
+    next i
+    application.displayalerts = true
+    
+    ' uncheck the boxes on the main sheet
+    sheets("add-in").checkboxes("chk_server").value = -4146
+    sheets("add-in").checkboxes("chk_foreground").value = -4146
+    
+    ' note that we're prepped for prod
+    wb_var "prepped_for_prod", "prod"
+    
+    ' hide the sheets, etc...
+    check_debug_mode
+    
+    ' end
+    msgbox "please immediately save and close the workbook", vbinformation
+end sub

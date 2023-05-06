@@ -1,0 +1,628 @@
+option explicit
+
+' load the form
+' =============
+
+private sub userform_initialize()
+    'fix vagrant texboxes
+    txt_k.left = 170
+    txt_evaluation_perc.left = 250
+    
+    ' populate the models combo box
+    dim i as integer
+    dim all_models
+    all_models = dict_utils(models)
+    
+    for i = 0 to ubound(all_models)
+        cmb_model.additem (all_models(i))
+    next i
+    
+    ' sync the dicts
+    range(cell_current_settings).value = sync_dicts(range(cell_current_settings).value, blank_settings)
+        
+    ' populate the form
+    cmb_model.text = dict_utils(cell_current_settings, "model")
+    txt_formula.text = dict_utils(cell_current_settings, "formula")
+    chk_output_model.value = dict_utils(cell_current_settings, "output_model")
+    chk_output_code.value = dict_utils(cell_current_settings, "output_code")
+    
+    txt_param1.text = dict_utils(cell_current_settings, "param1")
+    txt_param2.text = dict_utils(cell_current_settings, "param2")
+    txt_param3.text = dict_utils(cell_current_settings, "param3")
+    
+    lbl_training_data.tag = dict_utils(cell_current_settings, "training_data")
+    if lbl_training_data.tag <> "" then
+        lbl_training_data.caption = lbl_training_data.tag
+    else
+        lbl_training_data.caption = blank_range_selector
+    end if
+    
+    txt_seed.text = dict_utils(cell_current_settings, "seed")
+    
+    txt_k.text = dict_utils(cell_current_settings, "k")
+    
+    ' uncomment when time series dat is introduced
+    ' chk_ts_data.value = dict_utils(cell_current_settings, "ts_data")
+    
+    txt_evaluation_perc.text = dict_utils(cell_current_settings, "evaluation_perc")
+    if txt_evaluation_perc.text <> "" then
+        opt_perc_eval.value = true
+        opt_perc_eval_click
+    end if
+    
+    lbl_evaluation_data.tag = dict_utils(cell_current_settings, "evaluation_data")
+    if lbl_evaluation_data.tag <> "" then
+        lbl_evaluation_data.caption = lbl_evaluation_data.tag
+        opt_specific_eval.value = true
+        opt_specific_eval_click
+    else
+        lbl_evaluation_data.caption = blank_range_selector
+    end if
+    chk_output_evaluation_details.value = dict_utils(cell_current_settings, "output_evaluation_details")
+        
+    lbl_prediction_data.tag = dict_utils(cell_current_settings, "prediction_data")
+    if lbl_prediction_data.tag <> "" then
+        lbl_prediction_data.caption = lbl_prediction_data.tag
+    else
+        lbl_prediction_data.caption = blank_range_selector
+    end if
+    
+    ' add tooltips for paste in mac
+    #if mac then
+        txt_formula.controltiptext = "to replace the text in this textbox with the text in your clipboard, press ctrl + v"
+    #end if
+    
+    ' validate parameters
+    validate_parameters_pred
+    
+    ' put the window in the ocrrect place
+    on error resume next
+    me.startupposition = 0
+    me.left = application.left + (0.5 * application.width) - (0.5 * me.width)
+    me.top = application.top + (0.5 * application.height) - (0.5 * me.height)
+end sub
+
+' data fields
+' ===========
+
+private sub lbl_evaluation_data_click()
+    me.hide
+    
+    lbl_evaluation_data.tag = get_range("select the evaluation range or file. either with headers matching training data in the first row (in any order) " & _
+                                            "or without headers but containing the same number of columns as the training data, " & _
+                                            "in the same order.", lbl_prediction_data.tag, true, true)
+                                            
+    if lbl_evaluation_data.tag = "" then
+        lbl_evaluation_data.caption = blank_range_selector
+    else
+        lbl_evaluation_data.caption = lbl_evaluation_data.tag
+    end if
+    
+    me.show false
+    validate_parameters_pred
+end sub
+
+private sub lbl_prediction_data_click()
+    me.hide
+                                  
+    lbl_prediction_data.tag = get_range("select the prediction range or file. either with headers matching training data in the first row (in any order) " & _
+                                            "or without headers but containing the same number of columns as the training data, " & _
+                                            "in the same order.", lbl_prediction_data.tag, true, true)
+               
+    if lbl_prediction_data.tag = "" then
+        lbl_prediction_data.caption = blank_range_selector
+    else
+        lbl_prediction_data.caption = lbl_prediction_data.tag
+    end if
+    
+    me.show false
+    validate_parameters_pred
+end sub
+
+private sub lbl_training_data_click()
+    blank_cols = false
+    
+    me.hide
+    lbl_training_data.tag = get_range("select a range for the training data." & vbcrlf & vbcrlf & _
+                                        "the first row of the table you select should contain variable names." & _
+                                        vbcrlf & vbcrlf & "you can also enter a file name, provided it exists in the " & _
+                                        "same directory as this spreadsheet.", _
+                                        lbl_training_data.tag, true, true)
+    
+    if lbl_training_data.tag = "" then
+        lbl_training_data.caption = blank_range_selector
+        clear_vars
+    else
+        lbl_training_data.caption = lbl_training_data.tag
+    end if
+    
+    me.show false
+    validate_parameters_pred
+    
+    if blank_cols = true then
+        msgbox "you've selected a range with blank columns - perhaps you mistakenly went all the way to the right of the sheet instead of *just* selecting the data range?", vbexclamation
+    end if
+end sub
+
+private sub lbl_training_errors_click()
+    frm_data_errors.show false
+end sub
+
+private sub img_file_training_mouseup(byval button as integer, byval shift as integer, byval x as single, byval y as single)
+    file_selection_source = "training"
+    on error resume next
+    frm_file.show false
+end sub
+
+private sub img_file_evaluation_mouseup(byval button as integer, byval shift as integer, byval x as single, byval y as single)
+    opt_specific_eval_click
+    opt_specific_eval.value = true
+    file_selection_source = "evaluation"
+    frm_file.show false
+end sub
+
+private sub img_file_prediction_mouseup(byval button as integer, byval shift as integer, byval x as single, byval y as single)
+    file_selection_source = "prediction"
+    frm_file.show false
+end sub
+
+' save button
+' ===========
+
+private sub cmd_save_click()
+    application.calculation = xlcalculationmanual
+    
+    ' save the settings to the worksheet
+    
+    dict_utils cell_current_settings, "model", cmb_model.text
+    dict_utils cell_current_settings, "formula", txt_formula.text
+    dict_utils cell_current_settings, "output_model", chk_output_model.value
+    dict_utils cell_current_settings, "output_code", chk_output_code.value
+    
+    dict_utils cell_current_settings, "param1", txt_param1.text
+    dict_utils cell_current_settings, "param2", txt_param2.text
+    dict_utils cell_current_settings, "param3", txt_param3.text
+    
+    dict_utils cell_current_settings, "training_data", lbl_training_data.tag
+    
+    dict_utils cell_current_settings, "seed", txt_seed.text
+    
+    dict_utils cell_current_settings, "k", txt_k.text
+    
+    ' the ts_data parameter is no longer usedchange "false" to chk_ts_data.value to use parameter
+    dict_utils cell_current_settings, "ts_data", "false"
+    
+    dict_utils cell_current_settings, "evaluation_perc", txt_evaluation_perc.text
+    dict_utils cell_current_settings, "evaluation_data", lbl_evaluation_data.tag
+    dict_utils cell_current_settings, "output_evaluation_details", chk_output_evaluation_details.value
+    
+    dict_utils cell_current_settings, "prediction_data", lbl_prediction_data.tag
+    
+    application.calculation = xlcalculationautomatic
+    
+    unload me
+end sub
+
+private sub cmd_save_mouseup(byval button as integer, byval shift as integer, byval x as single, byval y as single)
+    ' if we right click on the save button, let the user specify the sheet name
+    if button = 2 then
+        requested_sheet_name = trim(inputbox("please enter a sheet name for the output.", "choose a sheet name"))
+        
+        if left(requested_sheet_name, 1) = "=" then
+            msgbox "please don't pick a sheet name that starts with an equal sign.", vbexclamation
+            requested_sheet_name = ""
+        else:
+            cmd_save_click
+        end if
+    end if
+end sub
+
+' misc ui elements
+' ================
+
+private sub cmb_model_change()
+    ' get the list of parameters for this model
+    dim param_list
+    param_list = split(dict_utils(models, cmb_model.value), ",")
+    
+    txt_param1.text = ""
+    txt_param2.text = ""
+    txt_param3.text = ""
+    txt_param1.visible = false
+    txt_param2.visible = false
+    txt_param3.visible = false
+    lbl_param1.visible = false
+    lbl_param2.visible = false
+    lbl_param3.visible = false
+    
+    if ubound(param_list) >= 0 then
+        lbl_param1.caption = param_list(0)
+        lbl_param1.visible = true
+        txt_param1.visible = true
+    end if
+    
+    if ubound(param_list) >= 1 then
+        lbl_param2.caption = param_list(1)
+        lbl_param2.visible = true
+        txt_param2.visible = true
+    end if
+    
+    if ubound(param_list) >= 2 then
+        lbl_param3.caption = param_list(2)
+        lbl_param3.visible = true
+        txt_param3.visible = true
+    end if
+    
+    validate_parameters_pred
+end sub
+
+private sub cmd_show_formula_click()
+    frm_formula.show false
+end sub
+
+private sub opt_no_eval_click()
+    with txt_evaluation_perc
+        .text = ""
+        .enabled = false
+    end with
+    
+    with lbl_evaluation_data
+        .tag = ""
+        .caption = blank_range_selector
+        .enabled = false
+    end with
+    validate_parameters_pred
+end sub
+
+private sub opt_perc_eval_click()
+    with txt_evaluation_perc
+        .enabled = true
+    end with
+    
+    with lbl_evaluation_data
+        .tag = ""
+        .caption = blank_range_selector
+        .enabled = false
+    end with
+    validate_parameters_pred
+end sub
+
+private sub opt_specific_eval_click()
+    with txt_evaluation_perc
+        .text = ""
+        .enabled = false
+    end with
+    
+    with lbl_evaluation_data
+        .enabled = true
+    end with
+    validate_parameters_pred
+end sub
+
+private sub txt_evaluation_perc_change()
+    validate_parameters_pred
+end sub
+
+private sub txt_formula_change()
+    validate_parameters_pred
+end sub
+
+private sub txt_formula_keydown(byval keycode as msforms.returninteger, byval shift as integer)
+    #if mac then
+        if keycode = 86 and shift = 2 then
+            keycode = 0
+            txt_formula.text = getclipboardtext()
+        end if
+    #end if
+end sub
+
+private sub txt_k_change()
+    validate_parameters_pred
+end sub
+
+private sub txt_param1_change()
+    validate_parameters_pred
+end sub
+
+private sub txt_param1_keydown(byval keycode as msforms.returninteger, byval shift as integer)
+    #if mac then
+        if keycode = 86 and shift = 2 then
+            keycode = 0
+            txt_param1.text = getclipboardtext()
+        end if
+    #end if
+end sub
+
+private sub txt_param2_change()
+    validate_parameters_pred
+end sub
+
+private sub txt_param2_keydown(byval keycode as msforms.returninteger, byval shift as integer)
+    #if mac then
+        if keycode = 86 and shift = 2 then
+            keycode = 0
+            txt_param2.text = getclipboardtext()
+        end if
+    #end if
+end sub
+
+private sub txt_param3_change()
+    validate_parameters_pred
+end sub
+
+private sub txt_param3_keydown(byval keycode as msforms.returninteger, byval shift as integer)
+    #if mac then
+        if keycode = 86 and shift = 2 then
+            keycode = 0
+            txt_param3.text = getclipboardtext()
+        end if
+    #end if
+end sub
+
+private sub txt_seed_change()
+    validate_parameters_pred
+end sub
+
+' utils
+' =====
+
+public function isnumericlist(list_string as string) as boolean
+    dim i as integer
+    dim split_list as variant
+    
+    split_list = split(list_string, "&")
+    
+    for i = 0 to ubound(split_list)
+        if not isnumeric(trim(split_list(i))) then
+            isnumericlist = false
+            exit function
+        end if
+    next i
+    
+    isnumericlist = true
+end function
+
+public function isweightlist(list_string as string) as boolean
+    dim i as integer
+    dim split_list as variant
+    
+    split_list = split(list_string, "&")
+    
+    for i = 0 to ubound(split_list)
+        if not (trim(split_list(i)) = "u" or trim(split_list(i)) = "d" or trim(split_list(i)) = "uniform" or trim(split_list(i)) = "distance") then
+            isweightlist = false
+            exit function
+        end if
+    next i
+    
+    isweightlist = true
+
+end function
+
+' validate params
+' ===============
+
+public sub validate_parameters_pred()
+    ' this function will validate parameters and indicate any mistakes
+    const non_numeric = "this parameter needs to be a number; please correct."
+    const param_needed = "this parameter cannot be empty."
+    const data_needed = "training data is needed."
+    const knn_invalid = "this parameter must either be 'u', 'd', 'uniform', or 'distance'."
+    const perc_out_of_range = "this parameter is a percentage and must be between 0 and 100."
+    const bs_gt1_formula = "best-subset selection can only be done with one formula."
+    const bs_gt10_vars = "best-subset selection with more than 10 variables would result in over 1000 competing models." & _
+                                            " consider using something more robust than xlkitlearn."
+    const bs_with_intercept = "xlkitlearn doesn't support best-subset selection with an intercept suppressing term."
+    const headers_dont_match = "evaluation/prediction datasets must either have exactly the same number of columns as the " & _
+                               "training set, or much share some of the training set's column names."
+                                                                    
+    ' start assuming everything is ok at a global level
+    pred_errors = false
+    
+    ' clear all the entries
+    txt_formula.backcolor = white
+    txt_param1.backcolor = white
+    txt_param2.backcolor = white
+    txt_param3.backcolor = white
+    lbl_training_data.backcolor = white
+    txt_seed.backcolor = white
+    txt_k.backcolor = white
+    txt_evaluation_perc.backcolor = white
+    lbl_evaluation_data.backcolor = white
+    lbl_prediction_data.backcolor = white
+    
+    txt_formula.controltiptext = ""
+    txt_param1.controltiptext = ""
+    txt_param2.controltiptext = ""
+    txt_param3.controltiptext = ""
+    lbl_training_data.controltiptext = ""
+    txt_seed.controltiptext = ""
+    txt_k.controltiptext = ""
+    txt_evaluation_perc.controltiptext = ""
+    lbl_evaluation_data.controltiptext = ""
+    lbl_prediction_data.controltiptext = ""
+    
+    lbl_training_data.width = formula_width_large
+    lbl_training_errors.visible = false
+    
+    ' determine the number of parameters in the emodel in question
+    dim n_params_required as integer
+    n_params_required = ubound(split(dict_utils(models, cmb_model.value), ",")) + 1
+    
+    ' check parameters for errors
+    if (cmb_model.value = "linear/logistic regression") and (lcase(txt_param1.text) = "bs") then
+        ' if doing best subset, make sure using only one formula, without intercept suppressing term, and with less than 10 vars
+        if instr(trim(txt_formula.text), "&") <> 0 then
+            txt_formula.backcolor = red
+            txt_formula.controltiptext = bs_gt1_formula
+            pred_errors = true
+        elseif instr(trim(txt_formula.text), "-1") <> 0 then
+            txt_formula.backcolor = red
+            txt_formula.controltiptext = bs_with_intercept
+            pred_errors = true
+        else
+            if instr(trim(txt_formula.text), ".") = 0 then
+                dim count as integer
+                ' find the number of terms separated by a "+" in the formula
+                count = ubound(split(txt_formula.text, "+")) + 1
+                if count > 10 then
+                    txt_formula.backcolor = red
+                    txt_formula.controltiptext = bs_gt10_vars
+                    pred_errors = true
+                end if
+            else
+                if vars.count > 10 then
+                    txt_formula.backcolor = red
+                    txt_formula.controltiptext = bs_gt10_vars
+                    pred_errors = true
+                end if
+            end if
+        end if
+    elseif (not isnumericlist(txt_param1.text)) then
+        txt_param1.backcolor = red
+        txt_param1.controltiptext = non_numeric
+        pred_errors = true
+    elseif trim(txt_param1.text) = "" and cmb_model.value <> "linear/logistic regression" then
+        txt_param1.backcolor = red
+        txt_param1.controltiptext = param_needed
+        pred_errors = true
+    end if
+    
+    if n_params_required >= 2 then
+        if (not isnumericlist(txt_param2.text)) and cmb_model.value <> "k-nearest neighbors" then
+            txt_param2.backcolor = red
+            txt_param2.controltiptext = non_numeric
+            pred_errors = true
+        elseif trim(txt_param2.text) = "" and cmb_model.value <> "k-nearest neighbors" then
+            txt_param2.backcolor = red
+            txt_param2.controltiptext = param_needed
+            pred_errors = true
+        end if
+    
+        if trim(txt_param2.text) <> "" and cmb_model.value = "k-nearest neighbors" then
+            if not (isweightlist(txt_param2.text)) then
+                txt_param2.backcolor = red
+                txt_param2.controltiptext = knn_invalid
+                pred_errors = true
+            end if
+        end if
+    end if
+    
+    if n_params_required >= 3 then
+        if not isnumericlist(txt_param3.text) then
+            txt_param3.backcolor = red
+            txt_param3.controltiptext = non_numeric
+            pred_errors = true
+        elseif (trim(txt_param3.text) = "") and (cmb_model.value <> "boosted decision tree") then
+            txt_param3.backcolor = red
+            txt_param3.controltiptext = param_needed
+            pred_errors = true
+        end if
+    end if
+
+    if not isnumeric(txt_seed.text) and trim(txt_seed.text) <> "" then
+        txt_seed.backcolor = red
+        txt_seed.controltiptext = non_numeric
+        pred_errors = true
+    end if
+
+    if not isnumeric(txt_k.text) and trim(txt_k.text) <> "" then
+        txt_k.backcolor = red
+        txt_k.controltiptext = non_numeric
+        pred_errors = true
+    elseif trim(txt_k.text) = "" and ((instr(1, txt_formula.text & txt_param1.text _
+                                    & txt_param2.text & txt_param3.text, "&") > 0) or cmb_model.value = "boosted decision tree") then
+        txt_k.backcolor = red
+        txt_k.controltiptext = param_needed
+        pred_errors = true
+    end if
+    
+    if not isnumeric(txt_evaluation_perc.text) and trim(txt_evaluation_perc.text) <> "" then
+        txt_evaluation_perc.backcolor = red
+        txt_evaluation_perc.controltiptext = non_numeric
+        pred_errors = true
+    elseif trim(txt_evaluation_perc.text) <> "" and (trim(txt_evaluation_perc.text) < 0 or trim(txt_evaluation_perc.text) > 100) then
+        txt_evaluation_perc.backcolor = red
+        txt_evaluation_perc.controltiptext = perc_out_of_range
+        pred_errors = true
+    elseif trim(txt_evaluation_perc.text) = "" and opt_perc_eval.value = true then
+        txt_evaluation_perc.backcolor = red
+        txt_evaluation_perc.controltiptext = param_needed
+        pred_errors = true
+    end if
+    
+    if (not isnumeric(txt_seed.text)) and (txt_seed.text <> "") then
+        txt_seed.backcolor = red
+        txt_seed.controltiptext = non_numeric
+        pred_errors = true
+    end if
+    
+    ' check the data
+    if lbl_training_data.tag = "" then
+        lbl_training_data.backcolor = red
+        lbl_training_data.controltiptext = data_needed
+        pred_errors = true
+    elseif validate_dataset(lbl_training_data.tag, true, true) <> "" then
+        lbl_training_data.backcolor = red
+        lbl_training_data.controltiptext = validate_dataset(lbl_training_data.tag, true, true)
+        pred_errors = true
+    else
+        update_vars
+        if header_errors.count > 0 then
+            lbl_training_data.width = formula_width_small
+            lbl_training_data.controltiptext = t_bad_headers
+            lbl_training_data.backcolor = red
+            
+            lbl_training_errors.backcolor = red
+            lbl_training_errors.visible = true
+            
+            pred_errors = true
+        end if
+    end if
+    
+    ' if we have evaluation and prediction sets, make sure the files are valid
+    if lbl_evaluation_data.tag <> "" then
+        dim eval_validate as string
+        eval_validate = validate_dataset(lbl_evaluation_data.tag, true, true)
+        if eval_validate <> "" then
+            lbl_evaluation_data.backcolor = red
+            lbl_evaluation_data.controltiptext = eval_validate
+            pred_errors = true
+        end if
+    end if
+    
+    if lbl_prediction_data.tag <> "" then
+        dim pred_validate as string
+        pred_validate = validate_dataset(lbl_prediction_data.tag, true, true)
+        if pred_validate <> "" then
+            lbl_prediction_data.backcolor = red
+            lbl_prediction_data.controltiptext = pred_validate
+            pred_errors = true
+        end if
+    end if
+    
+    ' if we successfully found columns in our training dataset, check that they are consistent
+    ' with the evaluation and prediction sets
+    if headers_matched(lbl_evaluation_data.tag) = false then
+        lbl_evaluation_data.backcolor = red
+        lbl_evaluation_data.controltiptext = headers_dont_match
+        pred_errors = true
+    end if
+    
+    if headers_matched(lbl_prediction_data.tag) = false then
+        lbl_prediction_data.backcolor = red
+        lbl_prediction_data.controltiptext = headers_dont_match
+        pred_errors = true
+    end if
+    
+    ' check the formula and data
+    dim error_message as string
+    error_message = validate_formula(txt_formula.text)
+    
+    if error_message <> "" then
+        txt_formula.backcolor = red
+        txt_formula.controltiptext = error_message
+        pred_errors = true
+    end if
+    
+end sub

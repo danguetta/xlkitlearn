@@ -6,8 +6,7 @@
   - Push back to github
 
 The specific errors I found were as follows:
-  - Some files I expected to find weren't quite right
-      * I expected to find a file xlkitlearn.py containing the Python code for the add-in, but it wasn't there
+  - Error updating the version number in the HTML file; the error was name 'expected_files' is not defined
 ---
 <!-- DO ***NOT*** EDIT ANYTHING ABOVE THIS LINE, INCLUDING THIS COMMENT -->
 

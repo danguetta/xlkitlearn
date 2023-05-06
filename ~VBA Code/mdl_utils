@@ -1,0 +1,229 @@
+option explicit
+
+' ###############################################################
+' #  mdl_utils                                                  #
+' #                                                             #
+' #  contains misc utilities                                    #
+' ###############################################################
+
+' add-in specific utils
+' =====================
+
+function addin_version() as string
+    ' this function goes into the python code, finds the add-in version and
+    ' returns it
+    
+    addin_version = split(range("'code_text'!a8").value, " ")(2)
+    addin_version = mid(addin_version, 2, len(addin_version) - 3)
+end function
+
+function run_id(optional create_new as boolean = false, optional extra_seed as long = 0) as string
+    ' get the run_id or create a new one
+    
+    on error resume next
+    
+    run_id = wb_var("run_id")
+    
+    if create_new then
+        randomize (datediff("s", #1/1/1970#, now()) + extra_seed)
+                
+        run_id = "r" & replace(str(round(rnd() * 1000000, 0)) & _
+                            str(round(rnd() * 1000000, 0)) & _
+                            str(round(rnd() * 1000000, 0)), " ", "")
+        
+        wb_var "run_id", run_id
+    end if
+end function
+
+' file/folder utils
+' =================
+
+public function get_full_file_name(file_name as string)
+    ' this function uses the very extensive machinery in mdl_onedrive_path
+    ' to prepend the full path of the workbook to a filename
+
+    get_full_file_name = getlocalpath(thisworkbook.path) & application.pathseparator & file_name
+end function
+
+public function get_files_in_folder(optional allowable_extensions as string = "", optional check_file = missing)
+    ' if allowable_extensions is an empty string, this function will
+    ' return all files in this workbook's folder. alternatively, the
+    ' string can contain a list of comma separated extensions, such
+    ' as ",xlsx,csv,txt,", in which case only files with these extensions
+    ' will be returned. note that it is essential the list of extensions
+    ' begins and ends with a comma
+    '
+    ' the array that is returned will be 0 indexed, and the first element
+    ' will always be empty. the first file will be located in element 1
+    '
+    ' if check_file is provided, the function returns true if this file
+    ' is in this directory, and false otherwise
+    
+    ' initialize the directory listing
+    dim cur_dir_result as string
+    cur_dir_result = dir(getlocalpath(thisworkbook.path) & application.pathseparator)
+    
+    ' go through all the files
+    dim i as integer
+    dim found_files() as string
+    redim preserve found_files(0 to 0)
+    while cur_dir_result <> ""
+        if (check_file <> missing) then
+            if cur_dir_result = check_file then
+                get_files_in_folder = true
+                exit function
+            end if
+        else
+            ' if the found file is in the list of acceptable extensions add
+            ' it to our list
+            dim this_extension
+            this_extension = split(cur_dir_result, ".")
+            this_extension = this_extension(ubound(this_extension))
+            if (allowable_extensions = "") or (instr(1, allowable_extensions, "," & this_extension & ",") > 0) then
+                i = i + 1
+                redim preserve found_files(0 to i)
+                found_files(i) = cur_dir_result
+            end if
+        end if
+        
+        ' get the next file
+        cur_dir_result = dir()
+    wend
+    
+    ' return
+    if check_file <> missing then
+        get_files_in_folder = false
+    else
+        get_files_in_folder = found_files
+    end if
+end function
+
+function get_temp_path() as string
+    ' get a temporary path that won't upest the apple sandbox
+    
+    #if mac then
+        get_temp_path = environ("home") + "/"
+    #else
+        get_temp_path = environ("appdata") + "\"
+    #end if
+end function
+
+' excel range utils
+' =================
+
+public function remove_workbook_from_range(r) as string
+    ' will take a range of the form
+    '    '[xlkitlearn.xlsm]nyc public schools data'!$a$1:$ab$4128
+    ' and return
+    '    'nyc public schools data'!$a$1:$ab$4128'
+    
+    if left(r, 2) = "'[" and instr(1, r, "]") >= 3 then
+        remove_workbook_from_range = "'" & split(r, "]")(1)
+    elseif left(r, 1) = "[" and instr(1, r, "]") >= 2 then
+        remove_workbook_from_range = split(r, "]")(1)
+    else
+        remove_workbook_from_range = r
+    end if
+end function
+
+public function check_valid_range(r) as boolean
+    ' this function takes a single argument r and checks whether it is
+    ' a valid excel range
+    
+    dim v as range
+    on error resume next
+    set v = range(remove_workbook_from_range(r))
+    if err.number > 0 then
+        check_valid_range = false
+    else
+        check_valid_range = true
+    end if
+    set v = nothing
+end function
+
+' misc utils
+' ==========
+
+public function trim_ends(byval s) as string
+    ' this function takes a string and removes the first and last
+    ' character
+    
+    s = trim(s)
+    trim_ends = mid(s, 2, len(s) - 2)
+end function
+
+public function getclipboardtext() as string
+    ' this function gets the content from the windows clipboard
+    
+    dim clipboard as msforms.dataobject
+    set clipboard = new msforms.dataobject
+    clipboard.getfromclipboard
+    getclipboardtext = clipboard.gettext
+    set clipboard = nothing
+end function
+
+public function localize_number(n) as double
+    ' this function tries to handle situations in which the computer's comma
+    ' is a dot, and vice versa
+    
+    on error goto try_two
+    
+    if int("1,00") = 1 then
+        ' comma is decimal separator
+        localize_number = replace(n, ".", ",")
+        exit function
+    end if
+    
+try_two:
+    
+    localize_number = n
+    
+    on error goto 0
+end function
+
+public function valid_var_chars(strsource as string) as boolean
+    ' this function will return true if every character in strsource is either
+    ' an uppercase character, lowercase character, number, or underscore, and
+    ' false otherwise
+    
+    valid_var_chars = true
+
+    dim i as integer
+    for i = 1 to len(strsource)
+        select case asc(mid(strsource, i, 1))
+            case 48 to 57, 65 to 90, 97 to 122, 95:
+                doevents
+            case else
+                valid_var_chars = false
+                exit function
+        end select
+    next i
+end function
+
+public sub pause_execution(s as long)
+    ' this function pauses execution for a number of seconds
+    
+    dim begin_time as long
+    begin_time = timer
+    
+    while timer - begin_time < s
+        doevents
+    wend
+end sub
+
+' todo : delete
+'public function pad_string(s as string, tot_length as integer)
+'    ' this function will pad a string to a given length using spaces. if
+'    ' the string is longer than the required length, it will be truncated
+'    ' and "... " will be appended to the end of it
+'
+'    if len(s) > tot_length then
+'        pad_string = left(s, tot_length - 4) & "... "
+'    else
+'        pad_string = s
+'        dim i as integer
+'        for i = len(s) to tot_length - 1
+'            pad_string = pad_string & " "
+'        next i
+'    end if
+'end function

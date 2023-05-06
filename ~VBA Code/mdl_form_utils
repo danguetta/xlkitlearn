@@ -1,0 +1,567 @@
+option explicit
+
+' ###############################################################
+' #  mdl_form_utils                                             #
+' #                                                             #
+' #  contains utilities used in processing the input forms      #
+' ###############################################################
+
+public function get_range(optional byval caption as string = "select a range", _
+                            optional byval default_val as string = "", _
+                            optional byval force_contiguous as boolean = true, _
+                            optional byval accept_file_name as boolean = false) as string
+                            
+    ' this function will display a dialogue to allow the user to select
+    ' an excel range. it takes three arguments
+    '   - caption          : the caption to display in the dialogue
+    '   - default_val      : the default value to display
+    '   - force_contiguous : if force_contiguous is true, this function
+    '                        will ensure the range is contiguous and
+    '                        display an error and return a blank range
+    '   - accept_file_name : if true,
+    '
+    ' it will return the range selected, or a blank string if cancelled
+    
+    ' remove the "file: " from the default val if needed
+    if accept_file_name and (left(default_val, 5) = "file:") then
+        default_val = mid(default_val, 7)
+    end if
+    
+    ' display the dialogue
+    dim dialogue_output
+    dialogue_output = application.inputbox(caption, "select a range", default_val, , , , , 0)
+    
+    ' if the dialogue is cancelled, return a blank string
+    if dialogue_output = false then
+        get_range = ""
+        exit function
+    else
+        ' get the output
+        dialogue_output = application.convertformula(dialogue_output, xlr1c1, xla1)
+        
+        ' remove the leading equal sign
+        dialogue_output = mid(dialogue_output, 2)
+        
+        ' excel sometimes includes the output in quotes. remove that
+        if instr(1, dialogue_output, chr(34)) <> 0 then
+            dialogue_output = trim_ends(dialogue_output)
+        end if
+        
+        dim dataset_error as string
+        dataset_error = validate_dataset(dialogue_output, force_contiguous, accept_file_name)
+        
+        if dataset_error <> "" then
+            msgbox dataset_error, vbexclamation
+        end if
+        
+        get_range = dialogue_output
+    end if
+end function
+
+public function validate_dataset(byref r, optional byval force_contiguous as boolean = true, _
+                                                    optional byval accept_file_name as boolean = false) as string
+    ' this funtion will check whether a dataset is valid. r will contain
+    ' the dataset that needs to be validated, and is passed by reference;
+    ' it will be modified to return the exact string that should be listed
+    ' in frm_pred
+    '
+    ' if everything is kosher, the function will return a blank string. if
+    ' not, it will return the error message
+    
+    ' remove the "file: " if it's there
+    if accept_file_name and (left(r, 5) = "file:") then
+        r = mid(r, 7)
+    end if
+    
+    if accept_file_name and get_files_in_folder("", r) = true then
+        'we can accept files, and this file exists; check if we have the right
+        'extension
+        if (right(r, 4) = ".csv") or (right(r, 4) = ".xls") or (right(r, 5) = ".xlsx") then
+            r = "file: " & r
+            validate_dataset = ""
+        else
+            r = ""
+            validate_dataset = t_invalid_file_type
+        end if
+    else
+        ' assume we have a range
+        
+        ' if this cell reference doesn't contain a sheet, add it
+        if instr(1, r, "!") = 0 then
+            r = "[" & activeworkbook.name & "]" & activeworkbook.activesheet.name & "!" & r
+        end if
+        
+        ' check whether we have a valid range
+        if check_valid_range(r) = false then
+            r = ""
+            validate_dataset = t_invalid_range
+        elseif force_contiguous and (instr(1, r, ",") > 0) then
+            ' we have a non-contiguous range
+            r = ""
+            validate_dataset = t_non_contiguous_range
+        else
+            ' we're good!
+        end if
+    end if
+end function
+
+public sub clear_vars()
+    ' this sub clears all the variable names and types
+    while vars.count > 0
+        vars.remove (1)
+    wend
+    
+    while var_types.count > 0
+        var_types.remove (1)
+    wend
+    
+    while header_errors.count > 0
+        header_errors.remove (1)
+    wend
+end sub
+
+public function headers_matched(dataset as string) as boolean
+    ' this function can be used to check whether evaluation/prediction datasets have columns
+    ' compatible with a training set. it returns true if
+    '  - the number of columns in both is identical
+    '  - at least one column name is shared between both
+    '  - vars is empty
+    '
+    ' for the training dataset, we'll use the variables in vars.
+    
+    ' if we haven't found the variables in the training set, exit
+    if vars.count = 0 then
+        headers_matched = true
+        exit function
+    end if
+    
+    ' get the columns in the dataset
+    dim vars2 as new collection
+    get_file_headers dataset, vars2
+    
+    ' if we weren't able to find variables, die
+    if vars2.count = 0 then
+        headers_matched = true
+        exit function
+    end if
+    
+    ' if the number of columns match, we're good (the -1 is to remove the .)
+    if vars.count - 1 = vars2.count then
+        headers_matched = true
+        exit function
+    end if
+    
+    ' if not, look for any overlap
+    dim i as integer
+    dim j as integer
+    for i = 1 to vars.count
+        for j = 1 to vars2.count
+            if vars.item(i) = vars2.item(j) then
+                headers_matched = true
+                exit function
+            end if
+        next j
+    next i
+end function
+
+public function get_file_headers(f_string as string, byref these_vars as collection) as string
+    ' this function takes a dataset string description, and returns one of the
+    ' following:
+    '   - excel_file : f_string describes a file that is not a csv
+    '   - too_many_cols : too many columns to process
+    '   - other_error
+    '   - an array with column headers, containing the column headers
+    
+    if debug_mode then
+        on error goto error_point
+    end if
+    
+    dim i as integer
+    
+    if left(f_string, 6) = "file: " then
+        dim file_name as string
+        file_name = split(f_string, ": ")(1)
+        
+        if get_files_in_folder("", file_name) = false then
+            get_file_headers = "other_error"
+        elseif right(file_name, 4) = ".csv" then
+            dim data_line
+            open get_full_file_name(file_name) for input as #1
+            line input #1, data_line
+            close #1
+            
+            ' inexplicably, when reading files on mac, a newline is read at the end
+            #if mac then
+                if asc(right(data_line, 1)) = 13 then
+                    data_line = mid(data_line, 1, len(data_line) - 1)
+                end if
+            #end if
+            
+            
+            data_line = split(data_line, ",")
+            
+            if trim(data_line(0)) = "row" and trim(data_line(1)) = "column" and trim(data_line(2)) = "value" then
+                get_file_headers = "other_error"
+            else
+                if ubound(data_line) < max_col_headers then
+                    for i = 0 to ubound(data_line)
+                        ' if we have double quotes, remove them
+                        if mid(data_line(i), 1, 1) = """" and right(data_line(i), 1) = """" then
+                            these_vars.add mid(data_line(i), 2, len(data_line(i)) - 2)
+                        else
+                            these_vars.add data_line(i)
+                        end if
+                    next i
+                else
+                    get_file_headers = "too_many_cols"
+                end if
+            end if
+        else
+            get_file_headers = "excel_file"
+        end if
+    elseif check_valid_range(f_string) then
+        ' we selected data in excel
+        dim data_range as range
+        set data_range = range(remove_workbook_from_range(f_string))
+        
+        if data_range(1, 1) = "row" and data_range(1, 2) = "column" and data_range(1, 3) = "value" then
+            get_file_headers = "other_error"
+        else
+            if data_range.columns.count < max_col_headers then
+                for i = 1 to data_range.columns.count
+                    these_vars.add trim(data_range(1, i))
+                next i
+            else
+                get_file_headers = "too_many_cols"
+            end if
+        end if
+    else
+        get_file_headers = "other_error"
+    end if
+    
+    exit function
+error_point:
+    get_file_headers = "other_error"
+end function
+
+public sub update_vars()
+    ' this function looks at the data in the training set, and tries to identify
+    ' column names and types
+    
+    ' if there are any errors, clear everything
+    if debug_mode then
+        on error goto clear_all
+    end if
+    
+    ' begin by clearing all variables
+    clear_vars
+    
+    ' get the columns
+    dim col_error as string
+    col_error = get_file_headers(frm_pred.lbl_training_data.tag, vars)
+    
+    excel_file = false
+    too_many_cols = false
+    unreadable_headers = false
+    blank_cols = false
+    
+    if col_error = "excel_file" then
+        excel_file = true
+    elseif col_error = "too_many_cols" then
+        too_many_cols = true
+    elseif col_error = "other_error" then
+        unreadable_headers = true
+    else
+        dim i as integer
+        
+        ' check whether we have blank columns
+        blank_cols = false
+        for i = 1 to vars.count
+            if trim(vars.item(i)) = "" then
+                blank_cols = true
+            end if
+        next i
+    
+        ' finally, look for errors in the headers
+        dim unsupported_headers as variant
+        unsupported_headers = array("intercept", "and", "as", "assert", "break", "class", "continue", "def", "del", "elif", _
+                                                "else", "except", "false", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", _
+                                                "none", "nonlocal", "not", "or", "pass", "raise", "return", "true", "try", "while", "with", "yield")
+    
+        for i = 1 to vars.count
+            if instr(1, vars(i), " ") <> 0 then
+                header_errors.add i & "`" & replace(vars(i), "`", "") & "`" & t_space_header
+            elseif not iserror(application.match(trim(lcase(vars(i))), unsupported_headers, 0)) then
+                header_errors.add i & "`" & replace(vars(i), "`", "") & "`" & t_reserved_header
+            elseif isnumeric(left(vars(i), 1)) then
+                header_errors.add i & "`" & replace(vars(i), "`", "") & "`" & t_num_start_header
+            elseif not valid_var_chars(vars(i)) then
+                header_errors.add i & "`" & replace(vars(i), "`", "") & "`" & t_invalid_var_char
+            else
+                ' count number of times header appears
+                dim j as integer, c as integer
+                c = 0
+                for j = 1 to vars.count
+                    if vars(i) = vars(j) then c = c + 1
+                next j
+                
+                if c > 1 then
+                    header_errors.add i & "`" & replace(vars(i), "`", "") & "`" & t_duplicate_header
+                end if
+            end if
+        next i
+        
+        ' if we have an excel range, look for non-numeric data
+        if check_valid_range(frm_pred.lbl_training_data.tag) then
+            dim data_range as range
+            set data_range = range(remove_workbook_from_range(frm_pred.lbl_training_data.tag))
+        
+            ' do some due diligence and see whether these columns contain
+            ' any non-numeric data
+            for i = 1 to data_range.columns.count
+                dim this_col as range
+                dim this_count as long
+                dim this_counta as long
+                dim this_len as long
+                
+                this_len = data_range.rows.count - 1
+                this_count = worksheetfunction.count(data_range.columns(i).offset(1).resize(this_len))
+                this_counta = worksheetfunction.counta(data_range.columns(i).offset(1).resize(this_len))
+                
+                if this_counta <> this_len then
+                    var_types.add "missing"
+                elseif this_counta <> this_count then
+                    var_types.add "string"
+                else
+                    var_types.add "numeric"
+                end if
+            next i
+        end if
+        
+        ' add a dot to vars
+        vars.add "."
+    end if
+    
+    exit sub
+clear_all:
+    clear_vars
+end sub
+
+public function autocomplete_variable(item, optional allow_substring as boolean = false) as string
+    ' this function will take a string, and check whether it matches any
+    ' variables in var
+    '   - if allow_substring = false, item will have to match the variable
+    '     name exactly
+    '   - if allow_substring = true, item can match the *start* of a variable
+    '     name
+    ' if a match is found, it is returned. otherwise, an empty string is returned
+    
+    dim i as integer
+    dim cur_item as string
+    
+    item = trim(item)
+    if item = "" then exit function
+    
+    ' todo : delete this
+    'item = split(item, ",")(0)
+    'if item = "" then exit function
+    'item = split(item, "<")(0)
+    'if item = "" then exit function
+    'item = split(item, "=")(0)
+    'if item = "" then exit function
+    'item = split(item, ">")(0)
+    'if item = "" then exit function
+    '
+    'item = trim(item)
+    
+    for i = 1 to vars.count
+        if allow_substring then
+            cur_item = mid(vars.item(i), 1, len(item))
+        else
+            cur_item = vars.item(i)
+        end if
+        
+        if item = cur_item then
+            autocomplete_variable = vars.item(i)
+            exit function
+        end if
+    next i
+end function
+
+public function validate_formula(formula_text as string) as string
+    ' this function will take a formula string from from_pred, and check whether it
+    ' is valid. if it's valid, an empty string is returned. if not, the error is
+    ' returned
+    
+    on error goto unknown_err
+
+    if trim(formula_text) = "" then
+        exit function
+    end if
+
+    ' prepare a counter
+    dim i as integer
+    
+    ' split potential multiple formulas
+    dim single_formulas as variant
+    single_formulas = split(trim(formula_text), "&")
+
+    ' make sure each formula has a tilde
+    ' ==================================
+    for i = 0 to ubound(single_formulas)
+        if instr(1, single_formulas(i), "~") = 0 then
+            validate_formula = t_formula_without_tilde
+            exit function
+        end if
+    next i
+    
+    ' analyze each formula
+    ' ====================
+    
+    dim formula_parts as variant
+    dim invalid_terms as new collection
+    
+    ' keep track of the outcome column in our formulas; we want to ensure there's
+    ' only one outcome variable in all our formulas
+    dim outcome_col as string
+    
+    for i = 0 to ubound(single_formulas)
+        ' remove all spaces in our formula and split it
+        single_formulas(i) = replace(single_formulas(i), " ", "")
+        formula_parts = split(single_formulas(i), "~")
+        
+        ' make sure every formula has a y variable
+        if formula_parts(0) = "" then
+            validate_formula = t_formula_no_y & single_formulas(i) & "."
+            exit function
+        end if
+        
+        ' make sure if multiple formulas are provided, the y variable is the same
+        ' for all of them
+        if (outcome_col <> "") and (outcome_col <> formula_parts(0)) then
+            validate_formula = t_formula_diff_y
+            exit function
+        end if
+        outcome_col = formula_parts(0)
+        
+        ' if we have a categorical y variable of the form (y = some value), get the
+        ' variable itself and note the fact we have such a categorical variable
+        dim cat_y_var as boolean
+        if instr(formula_parts(0), "=") > 0 then
+            cat_y_var = true
+            
+            ' remove opening and closing parentheses
+            if left(formula_parts(0), 1) = "(" and right(formula_parts(0), 1) = ")" then
+                formula_parts(0) = trim_ends(formula_parts(0))
+            end if
+            
+            ' pick the bit to the left of the equal sign
+            formula_parts(0) = split(formula_parts(0), "=")(0)
+        end if
+        
+        ' make sure this variable is valid (if we catalogued  variable names)
+        if vars.count > 0 and autocomplete_variable(formula_parts(0)) = "" then
+            invalid_terms.add (trim(formula_parts(0)))
+        end if
+        
+        ' if we've checked the numerical status of our columns, make sure the output
+        ' (y) column is numeric. also keep track of whether the rest of the columns are
+        ' numeric so we can check whether a dot formula is appropriate later
+        if var_types.count > 0 then
+            dim all_numeric as boolean
+            all_numeric = true
+        
+            dim w as integer
+            for w = 1 to var_types.count
+                ' if this variable type is non-numeric and it's not our y variable, we
+                ' do not have all numeric columns
+                if (var_types.item(w) <> "numeric") and (vars.item(w) <> formula_parts(0)) then
+                    all_numeric = false
+                end if
+                
+                ' if this variable is our y variable, check whether we have any issues
+                if vars.item(w) = formula_parts(0) then
+                    if var_types.item(w) = "missing" then
+                        validate_formula = replace(t_missing_y_values, "{{y_var}}", formula_parts(0))
+                        exit function
+                        
+                    elseif var_types.item(w) = "string" and (not cat_y_var) then
+                        validate_formula = replace(t_nonnumeric_y_values, "{{y_var}}", formula_parts(0))
+                        exit function
+                    end if
+                end if
+            next w
+            
+            ' if we have a dot formula, make sure every column is numeric
+            if (formula_parts(1) = "." or formula_parts(1) = ".-1") and (not all_numeric) then
+                validate_formula = t_dot_formula_non_numeric
+                exit function
+            end if
+        end if
+        
+        ' check there is a rhs
+        if formula_parts(1) = "" then
+            validate_formula = t_incomplete_formula_rhs & single_formulas(i) & "."
+            exit function
+        end if
+        
+        ' if we have a dot formula, we're good; else, check the terms
+        if not ((formula_parts(1) = ".") or (formula_parts(1) = ".-1")) then
+            ' split the second part of the formula
+            formula_parts = split(formula_parts(1), "+")
+        
+            dim j as integer
+            for j = 0 to ubound(formula_parts)
+                ' ensure this term isn't empty
+                if formula_parts(j) = "" then
+                    validate_formula = t_incomplete_formula_rhs & single_formulas(i) & "."
+                    exit function
+                end if
+                
+                ' check whether we have a lowercase c(
+                if left(formula_parts(j), 2) = "c(" then
+                    validate_formula = t_lowercase_c & formula_parts(j) & "."
+                    exit function
+                end if
+                
+                ' if we have any other term with a parenthesis, only look for the
+                ' text inside the parentheses
+                dim this_term as variant
+                this_term = split(formula_parts(j) & " ", "(")
+                this_term = split(this_term(ubound(this_term)), ")")(0)
+                
+                ' if we have interaction terms, split them out
+                this_term = split(this_term, "*")
+                
+                ' check each term
+                dim k as integer
+                for k = 0 to ubound(this_term)
+                    if this_term(k) = "" then
+                        validate_formula = t_incomplete_formula_rhs & single_formulas(i) & "."
+                        exit function
+                    end if
+                    
+                    if vars.count > 0 and autocomplete_variable(this_term(k)) = "" then invalid_terms.add (trim(this_term(k)))
+                next k
+            next j
+        end if
+    next i
+     
+    ' if we have any invalid terms, report on them
+    if invalid_terms.count > 0 then
+        validate_formula = t_formula_invalid_terms
+        
+        for i = 1 to invalid_terms.count
+            validate_formula = validate_formula & invalid_terms.item(i)
+            if i <> invalid_terms.count then validate_formula = validate_formula & ", "
+        next i
+        
+        validate_formula = validate_formula & t_formula_invalid_terms_end
+    end if
+    
+    exit function
+    
+unknown_err:
+    validate_formula = t_formula_check_unknown_error
+end function
+

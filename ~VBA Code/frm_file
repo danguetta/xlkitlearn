@@ -1,0 +1,55 @@
+private sub lst_files_dblclick(byval cancel as msforms.returnboolean)
+    dim i as integer
+    
+    for i = 0 to lst_files.listcount
+        if lst_files.selected(i) then
+            if file_selection_source = "text" then
+                frm_text.txt_source_data.text = lst_files.list(i)
+            elseif file_selection_source = "training" then
+                frm_pred.lbl_training_data.tag = "file: " & lst_files.list(i)
+                frm_pred.lbl_training_data.caption = frm_pred.lbl_training_data.tag
+                frm_pred.validate_parameters_pred
+            elseif file_selection_source = "prediction" then
+                frm_pred.lbl_prediction_data.tag = "file: " & lst_files.list(i)
+                frm_pred.lbl_prediction_data.caption = frm_pred.lbl_prediction_data.tag
+                frm_pred.validate_parameters_pred
+            elseif file_selection_source = "evaluation" then
+                frm_pred.lbl_evaluation_data.tag = "file: " & lst_files.list(i)
+                frm_pred.lbl_evaluation_data.caption = frm_pred.lbl_evaluation_data.tag
+                frm_pred.validate_parameters_pred
+            end if
+            unload me
+        end if
+    next i
+end sub
+
+private sub userform_activate()
+    lst_files.width = me.width - 99
+    lst_files.height = me.height - 97
+end sub
+
+private sub userform_initialize()
+    dim all_files as variant
+    if file_selection_source = "text" then
+        all_files = get_files_in_folder(",txt,csv,")
+    else
+        all_files = get_files_in_folder(",xls,xlsx,csv,")
+    end if
+    
+    if ubound(all_files) = 0 then
+        msgbox t_no_files, vbinformation
+        unload me
+        exit sub
+    end if
+    
+    dim i as integer
+    for i = 1 to ubound(all_files)
+        lst_files.additem all_files(i)
+    next i
+    
+    ' put the window in the ocrrect place
+    on error resume next
+    me.startupposition = 0
+    me.left = application.left + (0.5 * application.width) - (0.5 * me.width)
+    me.top = application.top + (0.5 * application.height) - (0.5 * me.height)
+end sub

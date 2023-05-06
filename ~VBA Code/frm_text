@@ -1,0 +1,277 @@
+option explicit
+
+private sub chk_sparse_output_click()
+    if chk_sparse_output.value = true then
+        max_features.max = 10000
+    else
+        max_features.max = 1000
+    end if
+end sub
+
+private sub cmd_save_click()
+    ' save the settings to the worksheet
+    
+    dict_utils cell_current_text_settings, "source_data", txt_source_data.text
+    
+    dict_utils cell_current_text_settings, "max_df", txt_max_df.text
+    dict_utils cell_current_text_settings, "min_df", txt_min_df.text
+    dict_utils cell_current_text_settings, "max_features", max_features.value
+    dict_utils cell_current_text_settings, "stop_words", chk_stop_words.value
+    dict_utils cell_current_text_settings, "tf_idf", chk_tf_idf.value
+    dict_utils cell_current_text_settings, "bigrams", chk_bigrams.value
+    dict_utils cell_current_text_settings, "stem", chk_stem.value
+    
+    dict_utils cell_current_text_settings, "lda_topics", txt_lda_topics.text
+    dict_utils cell_current_text_settings, "eval_perc", txt_eval_perc.text
+    
+    dict_utils cell_current_text_settings, "seed", txt_seed.text
+    
+    dict_utils cell_current_text_settings, "output_code", chk_output_code.value
+    
+    dict_utils cell_current_text_settings, "max_lda_iter", txt_max_lda_iter.text
+    
+    dict_utils cell_current_text_settings, "sparse_output", chk_sparse_output.value
+    
+    unload me
+end sub
+
+private sub cmd_save_mouseup(byval button as integer, byval shift as integer, byval x as single, byval y as single)
+    ' set output sheet name
+    if button = 2 then
+        requested_sheet_name = trim(inputbox("please enter a sheet name for the output.", "choose a sheet name"))
+        if requested_sheet_name = "=" then
+            msgbox "please don't pick a sheet name that starts with an equal sign.", vbexclamation
+            requested_sheet_name = ""
+        else
+            cmd_save_click
+        end if
+    end if
+end sub
+
+
+private sub img_file_mouseup(byval button as integer, byval shift as integer, byval x as single, byval y as single)
+    file_selection_source = "text"
+    on error resume next
+    frm_file.show false
+end sub
+
+private sub max_features_change()
+    lbl_max_features.caption = max_features.value
+end sub
+
+private sub opt_features_click()
+    txt_eval_perc.enabled = true
+    chk_sparse_output.enabled = true
+    max_features.max = 1000
+    
+    with txt_lda_topics
+        .enabled = false
+        .value = ""
+    end with
+    with txt_max_lda_iter
+        .enabled = false
+        .value = ""
+    end with
+end sub
+
+private sub opt_lda_click()
+    with txt_eval_perc
+        .enabled = false
+        .text = ""
+    end with
+    chk_sparse_output.enabled = false
+    chk_sparse_output.value = false
+    
+    txt_lda_topics.enabled = true
+    txt_max_lda_iter.enabled = true
+    max_features.max = 10000
+end sub
+
+
+private sub txt_eval_perc_change()
+    validate_parameters
+end sub
+
+private sub txt_lda_topics_change()
+    validate_parameters
+end sub
+
+private sub txt_max_df_change()
+    validate_parameters
+end sub
+
+private sub txt_max_lda_iter_change()
+    validate_parameters
+end sub
+
+private sub txt_min_df_change()
+    validate_parameters
+end sub
+
+private sub txt_seed_change()
+    validate_parameters
+end sub
+
+private sub txt_source_data_change()
+    validate_parameters
+end sub
+
+private sub userform_initialize()
+   
+    ' sync the dicts
+    range(cell_current_text_settings).value = sync_dicts(range(cell_current_text_settings).value, blank_text_settings)
+        
+    ' populate the form
+    txt_source_data.text = dict_utils(cell_current_text_settings, "source_data")
+    
+    txt_max_df.text = dict_utils(cell_current_text_settings, "max_df")
+    txt_min_df.text = dict_utils(cell_current_text_settings, "min_df")
+    max_features.value = dict_utils(cell_current_text_settings, "max_features")
+    max_features_change
+    
+    chk_stop_words.value = dict_utils(cell_current_text_settings, "stop_words")
+    chk_tf_idf.value = dict_utils(cell_current_text_settings, "tf_idf")
+    chk_bigrams.value = dict_utils(cell_current_text_settings, "bigrams")
+    chk_stem.value = dict_utils(cell_current_text_settings, "stem")
+    
+    txt_lda_topics.text = dict_utils(cell_current_text_settings, "lda_topics")
+    if txt_lda_topics.text <> "" then
+        opt_lda.value = true
+        opt_lda_click
+    end if
+    
+    txt_eval_perc.text = dict_utils(cell_current_text_settings, "eval_perc")
+    if txt_eval_perc.text <> "" then
+        opt_features.value = true
+        opt_features_click
+    end if
+    
+    txt_seed.text = dict_utils(cell_current_text_settings, "seed")
+    
+    chk_output_code.value = dict_utils(cell_current_text_settings, "output_code")
+    txt_max_lda_iter.text = dict_utils(cell_current_text_settings, "max_lda_iter")
+    
+    chk_sparse_output.value = dict_utils(cell_current_text_settings, "sparse_output")
+    chk_sparse_output_click
+    
+    ' put the window in the ocrrect place
+    on error resume next
+    me.startupposition = 0
+    me.left = application.left + (0.5 * application.width) - (0.5 * me.width)
+    me.top = application.top + (0.5 * application.height) - (0.5 * me.height)
+end sub
+
+
+private sub validate_parameters()
+    ' this function will validate parameters and indicate any mistakes
+    const non_numeric = "this parameter needs to be a number; please correct."
+    const file_not_exist = "this file might not exist. feel free to run the add-in anyway and see if it works; sometimes excel has trouble identifying files."
+    const data_needed = "please provide a file with text data."
+    const freq_out_of_range = "this parameter needs to be a number between 0 and 1."
+    const perc_out_of_range = "this parameter is a percentage and needs to be between 0 and 100."
+    const min_max_flipped = "the maximum must be greater than the minimum."
+    const topics_below_two = "this parameter must be greater than 2."
+    const seed_not_given = "a random seed is required when splitting the data into test/train."
+    
+    ' clear all the entries
+    txt_source_data.backcolor = white
+    txt_min_df.backcolor = white
+    txt_max_df.backcolor = white
+    txt_eval_perc.backcolor = white
+    txt_lda_topics.backcolor = white
+    txt_max_lda_iter.backcolor = white
+    txt_seed.backcolor = white
+    
+    txt_source_data.controltiptext = ""
+    txt_min_df.controltiptext = ""
+    txt_max_df.controltiptext = ""
+    txt_eval_perc.controltiptext = ""
+    txt_lda_topics.controltiptext = ""
+    txt_max_lda_iter.controltiptext = ""
+    txt_seed.controltiptext = ""
+    
+    ' start assuming everything is ok at a global level
+    text_errors = false
+    
+    ' check for numeric entries
+    if (not isnumeric(txt_min_df.text)) and txt_min_df.text <> "" then
+        txt_min_df.backcolor = red
+        txt_min_df.controltiptext = non_numeric
+        text_errors = true
+    elseif (txt_min_df.text <> "") and (trim(txt_min_df.text) < 0 or trim(txt_min_df.text) > 1) then
+        txt_min_df.backcolor = red
+        txt_min_df.controltiptext = freq_out_of_range
+        text_errors = true
+    end if
+    
+    if (not isnumeric(txt_max_df.text)) and txt_max_df.text <> "" then
+        txt_max_df.backcolor = red
+        txt_max_df.controltiptext = non_numeric
+        text_errors = true
+    elseif (txt_max_df.text <> "") and (trim(txt_max_df.text) < 0 or trim(txt_max_df.text) > 1) then
+        txt_max_df.backcolor = red
+        txt_max_df.controltiptext = freq_out_of_range
+        text_errors = true
+    elseif (txt_min_df.text <> "") and (txt_max_df.text <> "") then
+        if trim(txt_min_df.text) > trim(txt_max_df.text) then
+            txt_max_df.backcolor = red
+            txt_max_df.controltiptext = min_max_flipped
+            text_errors = true
+        end if
+    end if
+    
+    if (not isnumeric(txt_eval_perc.text)) and txt_eval_perc.text <> "" then
+        txt_eval_perc.backcolor = red
+        txt_eval_perc.controltiptext = non_numeric
+        text_errors = true
+    elseif txt_eval_perc.text <> "" and (trim(txt_eval_perc.text) < 0 or trim(txt_eval_perc.text) > 100) then
+        txt_eval_perc.backcolor = red
+        txt_eval_perc.controltiptext = perc_out_of_range
+        text_errors = true
+    end if
+    
+    if (not isnumeric(txt_lda_topics.text)) and txt_lda_topics.text <> "" then
+        txt_lda_topics.backcolor = red
+        txt_lda_topics.controltiptext = non_numeric
+        text_errors = true
+    elseif txt_lda_topics.text <> "" and (trim(txt_lda_topics.text) < 2) then
+        txt_lda_topics.backcolor = red
+        txt_lda_topics.controltiptext = topics_below_two
+        text_errors = true
+    end if
+    
+    if (not isnumeric(txt_max_lda_iter.text)) and txt_max_lda_iter.text <> "" then
+        txt_max_lda_iter.backcolor = red
+        txt_max_lda_iter.controltiptext = non_numeric
+        text_errors = true
+    end if
+    
+    if (not isnumeric(txt_seed.text)) and txt_seed.text <> "" then
+        txt_seed.backcolor = red
+        txt_seed.controltiptext = non_numeric
+        text_errors = true
+    elseif txt_eval_perc.text <> "" and txt_seed.text = "" then
+        txt_seed.backcolor = red
+        txt_seed.controltiptext = seed_not_given
+        text_errors = true
+    end if
+    
+    ' ensure the file exists
+    if txt_source_data.text = "" then
+        txt_source_data.backcolor = red
+        txt_source_data.controltiptext = data_needed
+        text_errors = true
+    else:
+        #if mac then
+            doevents
+        #else
+            if not fileexists(get_full_file_name(txt_source_data.text)) then
+                txt_source_data.backcolor = red
+                txt_source_data.controltiptext = file_not_exist
+                text_errors = true
+            end if
+        #end if
+    end if
+end sub
+
+

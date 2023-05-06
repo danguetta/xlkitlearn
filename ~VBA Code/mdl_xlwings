@@ -1,0 +1,1926 @@
+#const app = "microsoft excel" 'adjust when using outside of excel
+'version: 0.29.1
+
+'xlwings is distributed under a bsd 3-clause license.
+'
+'copyright (c) 2014-present, zoomer analytics llc.
+'all rights reserved.
+'
+'redistribution and use in source and binary forms, with or without modification,
+'are permitted provided that the following conditions are met:
+'
+'* redistributions of source code must retain the above copyright notice, this
+'  list of conditions and the following disclaimer.
+'
+'* redistributions in binary form must reproduce the above copyright notice, this
+'  list of conditions and the following disclaimer in the documentation and/or
+'  other materials provided with the distribution.
+'
+'* neither the name of the copyright holder nor the names of its
+'  contributors may be used to endorse or promote products derived from
+'  this software without specific prior written permission.
+'
+'this software is provided by the copyright holders and contributors "as is" and
+'any express or implied warranties, including, but not limited to, the implied
+'warranties of merchantability and fitness for a particular purpose are
+'disclaimed. in no event shall the copyright holder or contributors be liable for
+'any direct, indirect, incidental, special, exemplary, or consequential damages
+'(including, but not limited to, procurement of substitute goods or services;
+'loss of use, data, or profits; or business interruption) however caused and on
+'any theory of liability, whether in contract, strict liability, or tort
+'(including negligence or otherwise) arising in any way out of the use of this
+'software, even if advised of the possibility of such damage.
+
+'attribute vb_name = "main"
+
+
+
+#if vba7 then
+    #if mac then
+        private declare ptrsafe function system lib "libc.dylib" (byval command as string) as long
+    #end if
+    #if win64 then
+        const xlpydllname as string = "xlwings64-0.29.1.dll"
+        declare ptrsafe function xlpydllactivateauto lib "xlwings64-0.29.1.dll" (byref result as variant, optional byval config as string = "", optional byval mode as long = 1) as long
+        declare ptrsafe function xlpydllndims lib "xlwings64-0.29.1.dll" (byref src as variant, byref dims as long, byref transpose as boolean, byref dest as variant) as long
+        declare ptrsafe function xlpydllversion lib "xlwings64-0.29.1.dll" (tag as string, version as double, arch as string) as long
+    #else
+        private const xlpydllname as string = "xlwings32-0.29.1.dll"
+        declare ptrsafe function xlpydllactivateauto lib "xlwings32-0.29.1.dll" (byref result as variant, optional byval config as string = "", optional byval mode as long = 1) as long
+        private declare ptrsafe function xlpydllndims lib "xlwings32-0.29.1.dll" (byref src as variant, byref dims as long, byref transpose as boolean, byref dest as variant) as long
+        private declare ptrsafe function xlpydllversion lib "xlwings32-0.29.1.dll" (tag as string, version as double, arch as string) as long
+    #end if
+    private declare ptrsafe function loadlibrary lib "kernel32" alias "loadlibrarya" (byval lplibfilename as string) as long
+#else
+    #if mac then
+        private declare function system lib "libc.dylib" (byval command as string) as long
+    #end if
+    private const xlpydllname as string = "xlwings32-0.29.1.dll"
+    private declare function xlpydllactivateauto lib "xlwings32-0.29.1.dll" (byref result as variant, optional byval config as string = "", optional byval mode as long = 1) as long
+    private declare function xlpydllndims lib "xlwings32-0.29.1.dll" (byref src as variant, byref dims as long, byref transpose as boolean, byref dest as variant) as long
+    private declare function loadlibrary lib "kernel32" alias "loadlibrarya" (byval lplibfilename as string) as long
+    declare function xlpydllversion lib "xlwings32-0.29.1.dll" (tag as string, version as double, arch as string) as long
+#end if
+
+public const xlwings_version as string = "0.29.1"
+public const project_name as string = "xlwings"
+
+public function runpython(pythoncommand as string)
+    ' public api: runs the python command, e.g.: to run the function foo() in module bar, call the function like this:
+    ' runpython "import bar; bar.foo()"
+    
+    dim i as integer
+    dim sourcepythoncommand as string, interpreter as string, pythonpath as string, licensekey, activefullname as string, thisfullname as string, addexceldir as string
+    dim optimized_connection as boolean, uses_embedded_code as boolean
+    dim wb as workbook
+    dim sht as worksheet
+    
+    sourcepythoncommand = pythoncommand
+    
+    #if mac then
+        interpreter = getconfig("interpreter_mac", "")
+    #else
+        interpreter = getconfig("interpreter_win", "")
+    #end if
+    if interpreter = "" then
+        ' legacy
+        interpreter = getconfig("interpreter", "python")
+    end if
+
+    ' check for embedded python code
+    uses_embedded_code = false
+    for i = 1 to 2
+        if i = 1 then
+            set wb = thisworkbook
+        else
+            set wb = thisworkbook
+        end if
+        for each sht in wb.worksheets
+            if right$(sht.name, 3) = ".py" then
+                uses_embedded_code = true
+                exit for
+            end if
+        next
+    next i
+
+    if uses_embedded_code = true then
+        addexceldir = "false"
+    else
+        addexceldir = getconfig("add_workbook_to_pythonpath", "true")
+    end if
+
+    ' the first 5 args are not technically part of the pythonpath, but it's just easier to add it here (used by xlwings.utils.prepare_sys_path)
+    #if mac then
+        if instr(thisworkbook.fullname, "://") = 0 then
+            activefullname = toposixpath(thisworkbook.fullname)
+            thisfullname = toposixpath(thisworkbook.fullname)
+        else
+            activefullname = thisworkbook.fullname
+            thisfullname = thisworkbook.fullname
+        end if
+    #else
+        activefullname = thisworkbook.fullname
+        thisfullname = thisworkbook.fullname
+    #end if
+    
+    #if mac then
+        pythonpath = addexceldir & ";" & activefullname & ";" & thisfullname & ";" & getconfig("onedrive_consumer_mac") & ";" & getconfig("onedrive_commercial_mac") & ";" & getconfig("sharepoint_mac") & ";" & getconfig("pythonpath")
+    #else
+        pythonpath = addexceldir & ";" & activefullname & ";" & thisfullname & ";" & getconfig("onedrive_consumer_win") & ";" & getconfig("onedrive_commercial_win") & ";" & getconfig("sharepoint_win") & ";" & getconfig("pythonpath")
+    #end if
+
+    optimized_connection = getconfig("use udf server", false)
+
+    ' pythoncommand with embedded code
+    if uses_embedded_code = true then
+        licensekey = getconfig("license_key")
+        if licensekey = "" then
+            msgbox "embedded code requires a valid license_key."
+            exit function
+        else
+            pythoncommand = "import xlwings.pro;xlwings.pro.runpython_embedded_code('" & sourcepythoncommand & "')"
+        end if
+    end if
+
+    ' handle module execute permission (for embedded code that happens in python)
+    if lcase(getconfig("permission_check_enabled", , source:="user")) = "true" and uses_embedded_code = false then
+        pythoncommand = "import xlwings.pro;xlwings.pro.verify_execute_permission('" & sourcepythoncommand & "');" & pythoncommand
+    end if
+
+    ' call python platform-dependent
+    #if mac then
+        application.statusbar = "running..."  ' non-blocking way of giving feedback that something is happening
+        executemac pythoncommand, interpreter, pythonpath
+    #else
+        if optimized_connection = true then
+            py.setattr py.module("xlwings._xlwindows"), "book_caller", thisworkbook
+            
+            on error goto err_handling
+            
+            py.exec "" & pythoncommand & ""
+            goto end_err_handling
+err_handling:
+            showerror "", err.description
+            runpython = -1
+            on error goto 0
+end_err_handling:
+        else
+            runpython = executewindows(false, pythoncommand, interpreter, pythonpath)
+        end if
+    #end if
+end function
+
+
+sub executemac(pythoncommand as string, python_mac as string, optional pythonpath as string)
+    #if mac then
+    dim pythoninterpreter as string, runcommand as string, log as string
+    dim parameterstring as string, exitcode as string, condacmd as string, condapath as string, condaenv as string, log_file as string
+
+    ' transform paths
+    pythonpath = replace(pythonpath, "'", "\'") ' escaping quotes
+
+    if python_mac <> "" then
+        if python_mac <> "python" and python_mac <> "pythonw" then
+            pythoninterpreter = toposixpath(python_mac)
+        else
+            pythoninterpreter = python_mac
+        end if
+    else
+        pythoninterpreter = "python"
+    end if
+
+    ' sandbox location that requires no file access confirmation
+    ' todo: use same logic with guid like for windows. only here the guid will need to be passed back to cleanup()
+    log_file = environ("home") + "/xlwings.log" '/users/<user>/library/containers/com.microsoft.excel/data/xlwings.log
+
+    ' delete log file just to make sure we don't show an old error
+    on error resume next
+        kill log_file
+    on error goto 0
+
+    ' parametersting with all paramters (applescripttask only accepts a single parameter)
+    parameterstring = pythonpath + ";"
+    parameterstring = parameterstring + "|" + pythoninterpreter
+    parameterstring = parameterstring + "|" + pythoncommand
+    parameterstring = parameterstring + "|" + thisworkbook.name
+    parameterstring = parameterstring + "|" + left(application.path, len(application.path) - 4)
+    parameterstring = parameterstring + "|" + log_file
+
+    on error goto applescripterrorhandler
+        exitcode = applescripttask("xlwings-" & xlwings_version & ".applescript", "vbahandler", parameterstring)
+    on error goto 0
+
+    ' if there's a log at this point (normally that will be from the shell only, not python) show it and reset the statusbar
+    on error resume next
+        log = readfile(log_file)
+        if log = "" then
+            exit sub
+        else
+            showerror (log_file)
+            application.statusbar = false
+        end if
+        exit sub
+    on error goto 0
+
+applescripterrorhandler:
+    msgbox "to enable runpython, please run 'xlwings runpython install' in a terminal once and try again.", vbcritical
+    #end if
+end sub
+
+function executewindows(isfrozen as boolean, pythoncommand as string, python_win as string, _
+                        optional pythonpath as string, optional frozenargs as string) as integer
+    ' call a command window and change to the directory of the python installation or frozen executable
+    ' note: if python is called from a different directory with the fully qualified path, pywintypesxx.dll won't be found.
+    ' this seems to be a general issue with pywin32, see http://stackoverflow.com/q/7238403/918626
+    dim showconsole as integer
+    dim tempdir as string
+    if getconfig("show console", false) = true then
+        showconsole = 1
+    else
+        showconsole = 0
+    end if
+
+    dim waitonreturn as boolean: waitonreturn = true
+    dim windowstyle as integer: windowstyle = showconsole
+    dim drivecommand as string, runcommand, condaexcecutable as string
+    dim pythoninterpreter as string, pythondir as string, condacmd as string, condapath as string, condaenv as string
+    dim exitcode as long
+    dim log_file as string
+    
+    tempdir = getconfig("temp dir", environ("temp")) 'undocumented setting
+    
+    log_file = tempdir & "\xlwings-" & createguid() & ".log"
+
+    if not isfrozen and (python_win <> "python" and python_win <> "pythonw") then
+        if fileexists(python_win) then
+            pythondir = parentfolder(python_win)
+        else
+            msgbox "could not find interpreter!", vbcritical
+            exit function
+        end if
+    else
+        pythondir = ""  ' todo: hack
+    end if
+
+    if left$(python_win, 2) like "[a-za-z]:" then
+        ' if python is installed on a mapped or local drive, change to drive, then cd to path
+        drivecommand = left$(python_win, 2) & " & cd """ & pythondir & """ & "
+    elseif left$(python_win, 2) = "\\" then
+        ' if python is installed on a unc path, temporarily mount and activate a drive letter with pushd
+        drivecommand = "pushd """ & pythondir & """ & "
+    end if
+
+    ' run python with the "-c" command line switch: add the path of the python file and run the
+    ' command as first argument, then provide the name and "from_xl" as 2nd and 3rd arguments.
+    ' then redirect stderr to the log_file and wait for the call to return.
+
+    if python_win <> "python" and python_win <> "pythonw" then
+        pythoninterpreter = chr(34) & python_win & chr(34)
+    else
+        pythoninterpreter = "python"
+    end if
+
+    condapath = getconfig("conda path")
+    condaenv = getconfig("conda env")
+    
+    ' handle spaces in path (for udfs, this is handled via nested quotes instead, see xlpycommand)
+    condapath = replace(condapath, " ", "^ ")
+    
+    ' handle ampersands and backslashes in file paths
+    pythonpath = replace(pythonpath, "&", "^&")
+    pythonpath = replace(pythonpath, "\", "\\")
+    
+    if condapath <> "" and condaenv <> "" then
+        if checkconda(condapath) = false then
+            exit function
+        end if
+        condacmd = condapath & "\condabin\conda activate " & condaenv & " && "
+    else
+        condacmd = ""
+    end if
+
+    if isfrozen = false then
+        runcommand = condacmd & pythoninterpreter & " -b -c ""import xlwings.utils;xlwings.utils.prepare_sys_path(\""" & pythonpath & "\""); " & pythoncommand & """ "
+    elseif isfrozen = true then
+        runcommand = chr(34) & pythoncommand & chr(34) & " " & frozenargs & " "
+    end if
+    
+    exitcode = wscript.run("cmd.exe /c " & drivecommand & _
+                       runcommand & _
+                       " --wb=" & """" & thisworkbook.name & """ --from_xl=1" & " --app=" & chr(34) & _
+                       application.path & "\" & application.name & chr(34) & " --hwnd=" & chr(34) & application.hwnd & chr(34) & _
+                       " 2> """ & log_file & """ ", _
+                       windowstyle, waitonreturn)
+
+    'if exitcode <> 0 then there's something wrong
+    if exitcode <> 0 then
+        call showerror(log_file)
+        executewindows = -1
+    end if
+
+    ' delete file after the error message has been shown
+    on error resume next
+        kill log_file
+    on error goto 0
+end function
+
+public function runfrozenpython(executable as string, optional args as string)
+    ' runs a python executable that has been frozen by pyinstaller and the like. call the function like this:
+    ' runfrozenpython "c:\path\to\frozen_executable.exe", "arg1 arg2". currently not implemented for mac.
+
+    ' call python
+    #if mac then
+        msgbox "this functionality is not yet supported on mac." & vbnewline & _
+               "please run your scripts directly in python!", vbcritical + vbokonly, "unsupported feature"
+    #else
+        executewindows true, executable, parentfolder(executable), , args
+    #end if
+end function
+
+#if app = "microsoft excel" then
+function getudfmodules(optional wb as workbook) as string
+#else
+function getudfmodules(optional wb as variant) as string
+#end if
+    dim i as integer
+    dim udf_modules as string
+    dim sht as worksheet
+
+    getudfmodules = getconfig("udf modules")
+    ' remove trailing ";"
+    if right$(getudfmodules, 1) = ";" then
+        getudfmodules = left$(getudfmodules, len(getudfmodules) - 1)
+    end if
+    
+    ' automatically add embedded code sheets
+    for each sht in wb.worksheets
+        if right$(sht.name, 3) = ".py" then
+            if getudfmodules = "" then
+                getudfmodules = left$(sht.name, len(sht.name) - 3)
+            else
+                getudfmodules = getudfmodules & ";" & left$(sht.name, len(sht.name) - 3)
+            end if
+        end if
+    next
+
+    ' default
+    if getudfmodules = "" then
+        getudfmodules = left$(wb.name, len(wb.name) - 5) ' assume that it ends in .xls*
+    end if
+    
+end function
+
+private sub cleanup()
+    'on mac only, this function is being called after python is done (using python's atexit handler)
+    dim log_file as string
+
+    #if mac_office_version >= 15 then
+        log_file = environ("home") + "/xlwings.log" '~/library/containers/com.microsoft.excel/data/xlwings.log
+    #else
+        log_file = "/tmp/xlwings.log"
+    #end if
+
+    'show the log_file as msgbox if not empty
+    on error resume next
+    if readfile(log_file) <> "" then
+        call showerror(log_file)
+    end if
+    on error goto 0
+
+    'clean up
+    application.statusbar = false
+    application.screenupdating = true
+    on error resume next
+        #if mac_office_version >= 15 then
+            kill log_file
+        #else
+            killfileonmac tomacpath(toposixpath(log_file))
+        #end if
+    on error goto 0
+end sub
+
+function xlpycommand()
+    'todo: the whole python vs. pythonw should be obsolete now that the console is shown/hidden by the dll
+    dim python_win as string, pythonpath as string, log_file as string, tail as string, licensekey as string, licensekeyenvstring as string, addexceldir as string
+    dim condacmd as string, condapath as string, condaenv as string, consoleswitch as string, fname as string
+
+    dim debug_udfs as boolean
+    #if app = "microsoft excel" then
+    dim wb as workbook
+    #end if
+
+    ' todo: doesn't automatically check if code is embedded
+    addexceldir = getconfig("add_workbook_to_pythonpath", "true")
+
+    ' the first 6 args are not technically part of the pythonpath, but it's just easier to add it here (used by xlwings.utils.prepare_sys_path)
+    #if app = "microsoft excel" then
+        pythonpath = addexceldir & ";" & thisworkbook.fullname & ";" & thisworkbook.fullname & ";" & getconfig("onedrive_consumer_win") & ";" & getconfig("onedrive_commercial_win") & ";" & getconfig("sharepoint_win") & ";" & getconfig("pythonpath")
+    #else
+        ' other office apps
+        #if app = "microsoft word" then
+            fname = thisdocument.fullname
+        #elseif app = "microsoft access" then
+            fname = currentproject.fullname
+        #elseif app = "microsoft powerpoint" then
+            fname = activepresentation.fullname
+        #end if
+        pythonpath = fname & ";" & ";" & getconfig("onedrive_consumer_win") & ";" & getconfig("onedrive_commercial_win") & ";" & getconfig("sharepoint_win") & ";" & getconfig("pythonpath")
+    #end if
+
+    ' escaping backslashes and quotes
+    pythonpath = replace(pythonpath, "\", "\\")
+    pythonpath = replace(pythonpath, "'", "\'")
+    pythonpath = replace(pythonpath, "&", "^&")
+    
+    python_win = getconfig("interpreter_win", "")
+    if python_win = "" then
+        ' legacy
+        python_win = getconfig("interpreter", "pythonw")
+    end if
+    debug_udfs = getconfig("debug udfs", false)
+
+    ' /showconsole is a fictitious command line switch that's ignored by cmd.exe but used by createprocessa in the dll
+    ' it's the only setting that's sent over like this at the moment
+    if getconfig("show console", false) = true then
+        consoleswitch = "/showconsole"
+    else
+        consoleswitch = ""
+    end if
+
+    condapath = getconfig("conda path")
+    condaenv = getconfig("conda env")
+
+    if (python_win = "python" or python_win = "pythonw") and (condapath <> "" and condaenv <> "") then
+        condacmd = chr(34) & chr(34) & condapath & "\condabin\conda" & chr(34) & " activate " & condaenv & " && "
+        python_win = "cmd.exe " & consoleswitch & " /k " & condacmd & "python"
+    else
+        python_win = "cmd.exe " & consoleswitch & " /k " & chr(34) & chr(34) & python_win & chr(34)
+    end if
+
+    licensekey = getconfig("license_key", "")
+    if licensekey <> "" then
+        licensekeyenvstring = "os.environ['xlwings_license_key']='" & licensekey & "';"
+    else
+        licensekeyenvstring = ""
+    end if
+
+    if debug_udfs = true then
+        xlpycommand = "{506e67c3-55b5-48c3-a035-eed5deea7d6d}"
+    else
+        ' spaces in path of python.exe require quote around path and quotes around whole command, see:
+        ' https://stackoverflow.com/questions/6376113/how-do-i-use-spaces-in-the-command-prompt
+        tail = " -b -c ""import sys, os;" & licensekeyenvstring & "import xlwings.utils;xlwings.utils.prepare_sys_path(\""" & pythonpath & "\"");import xlwings.server; xlwings.server.serve('$(clsid)')"""
+        xlpycommand = python_win & tail & chr(34)
+    end if
+end function
+
+private sub xlpyloaddll()
+    dim python_win as string, condacmd as string, condapath as string, condaenv as string
+
+    python_win = getconfig("interpreter_win", "")
+    if python_win = "" then
+        ' legacy
+        python_win = getconfig("interpreter", "pythonw")
+    end if
+    condapath = getconfig("conda path")
+    condaenv = getconfig("conda env")
+
+    if (python_win = "python" or python_win = "pythonw") and (condapath <> "" and condaenv <> "") then
+        ' this only works if the envs are in their default location
+        ' otherwise you'll have to add the full path for the interpreter in addition to the conda infos
+        if condaenv = "base" then
+            python_win = condapath & "\" & python_win
+        else
+            python_win = condapath & "\envs\" & condaenv & "\" & python_win
+        end if
+    end if
+
+    if (python_win <> "python" and python_win <> "pythonw") or (condapath <> "" and condaenv <> "") then
+        if loadlibrary(parentfolder(python_win) + "\" + xlpydllname) = 0 then  ' standard installation
+            if loadlibrary(parentfolder(parentfolder(python_win)) + "\" + xlpydllname) = 0 then  ' virtualenv
+                err.raise 1, description:= _
+                    "could not load " + xlpydllname + " from either of the following folders: " _
+                    + vbcrlf + parentfolder(python_win) _
+                    + vbcrlf + ", " + parentfolder(parentfolder(python_win))
+            end if
+        end if
+    end if
+end sub
+
+function ndims(byref src as variant, dims as long, optional transpose as boolean = false)
+    xlpyloaddll
+    if 0 <> xlpydllndims(src, dims, transpose, ndims) then err.raise 1001, description:=ndims
+end function
+
+function py()
+    xlpyloaddll
+    if 0 <> xlpydllactivateauto(py, xlpycommand, 1) then err.raise 1000, description:=py
+end function
+
+sub killpy()
+    xlpyloaddll
+    dim unused
+    if 0 <> xlpydllactivateauto(unused, xlpycommand, -1) then err.raise 1000, description:=unused
+end sub
+
+sub importpythonudfsbase(optional addin as boolean = false)
+    ' this is called from the ribbon button
+    dim temppath as string, errormsg as string
+    dim wb as workbook
+
+    if getconfig("conda path") <> "" and checkconda(getconfig("conda path")) = false then
+        exit sub
+    end if
+
+    if addin = true then
+        set wb = thisworkbook
+    else
+        set wb = thisworkbook
+    end if
+
+    on error goto importerror
+        temppath = py.str(py.call(py.module("xlwings"), "import_udfs", py.tuple(getudfmodules(wb), wb)))
+    exit sub
+importerror:
+    errormsg = err.description & " " & err.number
+    showerror "", errormsg
+end sub
+
+sub importpythonudfs()
+    importpythonudfsbase
+end sub
+
+sub importpythonudfstoaddin()
+    importpythonudfsbase addin:=true
+end sub
+
+sub importxlwingsudfsmodule(tf as string)
+    ' fallback: this is called from python as direct pywin32 calls were sometimes failing, see comments in the python code
+    on error resume next
+    thisworkbook.vbproject.vbcomponents.remove thisworkbook.vbproject.vbcomponents("xlwings_udfs")
+    on error goto 0
+    thisworkbook.vbproject.vbcomponents.import tf
+end sub
+
+private sub getdllversion()
+    ' currently only for testing
+    dim tag as string, arch as string
+    dim ver as double
+    xlpydllversion tag, ver, arch
+    debug.print tag
+    debug.print ver
+    debug.print arch
+end sub
+
+
+
+
+'attribute vb_name = "config"
+
+
+
+#if app = "microsoft excel" then
+function getdirectorypath(optional wb as workbook) as string
+#else
+function getdirectorypath(optional wb as variant) as string
+#end if
+    ' leaving this here for now because we currently don't have #const app in utils
+    dim path as string
+    #if app = "microsoft excel" then
+        on error resume next 'on mac, this is called when exiting the python interpreter
+            path = getdirectory(getfullname(wb))
+        on error goto 0
+    #elseif app = "microsoft word" then
+        path = thisdocument.path
+    #elseif app = "microsoft access" then
+        path = currentproject.path ' won't be transformed for standalone module as thisproject doesn't exit
+    #elseif app = "microsoft powerpoint" then
+        path = activepresentation.path ' won't be transformed for standalone module thispresentation doesn't exist
+    #else
+        exit function
+    #end if
+    getdirectorypath = path
+end function
+
+function getconfigfilepath() as string
+    #if mac then
+        ' ~/library/containers/com.microsoft.excel/data/xlwings.conf
+        getconfigfilepath = getmacdir("$home", false) & "/" & project_name & ".conf"
+    #else
+        getconfigfilepath = environ("userprofile") & "\." & project_name & "\" & project_name & ".conf"
+    #end if
+end function
+
+function getdirectoryconfigfilepath() as string
+    dim pathseparator as string
+    
+    #if mac then ' application.pathseparator doesn't seem to exist in access...
+        pathseparator = "/"
+    #else
+        pathseparator = "\"
+    #end if
+    
+    getdirectoryconfigfilepath = getdirectorypath(thisworkbook) & pathseparator & project_name & ".conf"
+end function
+
+#if app = "microsoft excel" then
+function getconfigfromsheet(wb as workbook)
+    dim lastcell as range, cell as range
+    #if mac then
+    dim d as dictionary
+    set d = new dictionary
+    #else
+    dim d as object
+    set d = createobject("scripting.dictionary")
+    #end if
+    dim sht as worksheet
+
+    set sht = wb.sheets(project_name & ".conf")
+
+    if sht.range("a2") = "" then
+        set lastcell = sht.range("a1")
+    else
+        set lastcell = sht.range("a1").end(xldown)
+    end if
+
+    for each cell in range(sht.range("a1"), lastcell)
+        d.add ucase(cell.value), cell.offset(0, 1).value
+    next cell
+    set getconfigfromsheet = d
+end function
+#end if
+
+function getconfig(configkey as string, optional default as string = "", optional source as string = "") as variant
+    ' if source is provided, returns the value from this source only, otherwise it goes through all layers until
+    ' it finds a value (sheet -> directory -> user -> default)
+    ' an entry in xlwings.conf sheet overrides the config file/ribbon
+    dim configvalue as string
+    
+    ' sheet
+    #if app = "microsoft excel" then
+    if source = "" or source = "sheet" then
+        if application.name = "microsoft excel" then
+            'workbook sheet config
+            if sheetexists(thisworkbook, project_name & ".conf") = true then
+                if getconfigfromsheet(thisworkbook).exists(configkey) = true then
+                    getconfig = getconfigfromsheet(thisworkbook).item(configkey)
+                    getconfig = expandenvironmentstrings(getconfig)
+                    exit function
+                end if
+            end if
+    
+            'add-in sheet config (only for custom add-ins, unused by xlwings add-in)
+            if sheetexists(thisworkbook, project_name & ".conf") = true then
+                if getconfigfromsheet(thisworkbook).exists(configkey) = true then
+                    getconfig = getconfigfromsheet(thisworkbook).item(configkey)
+                    getconfig = expandenvironmentstrings(getconfig)
+                    exit function
+                end if
+            end if
+        end if
+    end if
+    #end if
+
+    ' directory config
+    if source = "" or source = "directory" then
+        #if app = "microsoft excel" then
+            if getfullname(thisworkbook) <> "" then ' empty if local dir can't be figured out (e.g. sharepoint)
+        #else
+            if instr(getdirectorypath(), "://") = 0 then ' other office apps: skip for synced sharepoint/onedrive files
+        #end if
+            if fileexists(getdirectoryconfigfilepath()) = true then
+                if getconfigfromfile(getdirectoryconfigfilepath(), configkey, configvalue) then
+                    getconfig = configvalue
+                    getconfig = expandenvironmentstrings(getconfig)
+                    exit function
+                end if
+            end if
+        end if
+    end if
+
+    ' user config
+    if source = "" or source = "user" then
+        if fileexists(getconfigfilepath()) = true then
+            if getconfigfromfile(getconfigfilepath(), configkey, configvalue) then
+                getconfig = configvalue
+                getconfig = expandenvironmentstrings(getconfig)
+                exit function
+            end if
+        end if
+    end if
+
+    ' defaults
+    getconfig = default
+    getconfig = expandenvironmentstrings(getconfig)
+
+end function
+
+function saveconfigtofile(sfilename as string, sname as string, optional svalue as string) as boolean
+'adopted from http://peltiertech.com/save-retrieve-information-text-files/
+
+  dim ifilenuma as long, ifilenumb as long, lerrlast as long
+  dim sfile as string, sxfile as string, svarname as string, svarvalue as string
+      
+    
+  #if mac then
+    if not fileorfolderexistsonmac(parentfolder(sfilename)) then
+  #else
+    if len(dir(parentfolder(sfilename), vbdirectory)) = 0 then
+  #end if
+     mkdir parentfolder(sfilename)
+  end if
+
+  ' assume false unless variable is successfully saved
+  saveconfigtofile = false
+
+  ' temporary file
+  sfile = sfilename
+  sxfile = sfilename & "_temp"
+
+  ' open text file to read settings
+  if fileexists(sfile) then
+    'replace existing settings file
+    ifilenuma = freefile
+    open sfile for input as ifilenuma
+    ifilenumb = freefile
+    open sxfile for output as ifilenumb
+      do while not eof(ifilenuma)
+        input #ifilenuma, svarname, svarvalue
+        if svarname <> sname then
+          write #ifilenumb, svarname, svarvalue
+        end if
+      loop
+      write #ifilenumb, sname, svalue
+      saveconfigtofile = true
+    close #ifilenuma
+    close #ifilenumb
+    filecopy sxfile, sfile
+    kill sxfile
+  else
+    ' make new file
+    ifilenumb = freefile
+    open sfile for output as ifilenumb
+      write #ifilenumb, sname, svalue
+      saveconfigtofile = true
+    close #ifilenumb
+  end if
+
+end function
+
+function getconfigfromfile(sfile as string, sname as string, optional svalue as string) as boolean
+'based on http://peltiertech.com/save-retrieve-information-text-files/
+
+  dim ifilenum as long, lerrlast as long
+  dim svarname as string, svarvalue as string
+
+
+  ' assume false unless variable is found
+  getconfigfromfile = false
+
+  ' open text file to read settings
+  if fileexists(sfile) then
+    ifilenum = freefile
+    open sfile for input as ifilenum
+      do while not eof(ifilenum)
+        input #ifilenum, svarname, svarvalue
+        if lcase(svarname) = lcase(sname) then
+          svalue = svarvalue
+          getconfigfromfile = true
+          exit do
+        end if
+      loop
+    close #ifilenum
+  end if
+
+end function
+
+'attribute vb_name = "extensions"
+function sql(query, paramarray tables())
+        if typeof application.caller is range then on error goto failed
+        redim argsarray(1 to ubound(tables) - lbound(tables) + 2)
+        argsarray(1) = query
+        for k = lbound(tables) to ubound(tables)
+        argsarray(2 + k - lbound(tables)) = tables(k)
+        next k
+        if has_dynamic_array() then
+            sql = py.calludf("xlwings.ext", "sql_dynamic", argsarray, thisworkbook, application.caller)
+        else
+            sql = py.calludf("xlwings.ext", "sql", argsarray, thisworkbook, application.caller)
+        end if
+        exit function
+failed:
+        sql = err.description
+end function
+
+'attribute vb_name = "utils"
+
+
+
+function wscript(optional createnew as boolean) as object
+  static value as object
+  if createnew or value is nothing then set value = createobject("wscript.shell")
+  set wscript = value
+end function
+
+function isfullname(sfile as string) as boolean
+  ' if sfile includes path, it contains path separator "\" or "/"
+  isfullname = instr(sfile, "\") + instr(sfile, "/") > 0
+end function
+
+function fileexists(byval filespec as string) as boolean
+    #if mac then
+        fileexists = fileorfolderexistsonmac(filespec)
+    #else
+        fileexists = fileexistsonwindows(filespec)
+    #end if
+end function
+
+function fileexistsonwindows(byval filespec as string) as boolean
+   ' by karl peterson ms mvp vb
+   dim attr as long
+   ' guard against bad filespec by ignoring errors
+   ' retrieving its attributes.
+   on error resume next
+   attr = getattr(filespec)
+   if err.number = 0 then
+      ' no error, so something was found.
+      ' if directory attribute set, then not a file.
+      fileexistsonwindows = not ((attr and vbdirectory) = vbdirectory)
+   end if
+end function
+
+
+function fileorfolderexistsonmac(fileorfolderstr as string) as boolean
+'ron de bruin : 26-june-2015
+'function to test whether a file or folder exist on a mac in office 2011 and up
+'uses applescript to avoid the problem with long names in office 2011,
+'limit is max 32 characters including the extension in 2011.
+    dim scripttocheckfilefolder as string
+    dim teststr as string
+    
+    #if mac then
+    if val(application.version) < 15 then
+        scripttocheckfilefolder = "tell application " & chr(34) & "system events" & chr(34) & _
+         "to return exists disk item (" & chr(34) & fileorfolderstr & chr(34) & " as string)"
+        fileorfolderexistsonmac = macscript(scripttocheckfilefolder)
+    else
+        on error resume next
+        teststr = dir(fileorfolderstr, vbdirectory)
+        on error goto 0
+        if not teststr = vbnullstring then fileorfolderexistsonmac = true
+    end if
+    #end if
+end function
+
+function parentfolder(byval folder)
+  #if mac then
+      parentfolder = left$(folder, instrrev(folder, "/") - 1)
+  #else
+      parentfolder = left$(folder, instrrev(folder, "\") - 1)
+  #end if
+end function
+
+function getdirectory(path)
+    #if mac then
+    getdirectory = left(path, instrrev(path, "/"))
+    #else
+    getdirectory = left(path, instrrev(path, "\"))
+    #end if
+end function
+
+function killfileonmac(filestr as string)
+    'ron de bruin
+    '30-july-2012
+    'delete files from a mac.
+    'uses applescript to avoid the problem with long file names (on 2011 only)
+
+    dim scripttokillfile as string
+    
+    #if mac then
+    scripttokillfile = "tell application " & chr(34) & "finder" & chr(34) & chr(13)
+    scripttokillfile = scripttokillfile & "do shell script ""rm "" & quoted form of posix path of " & chr(34) & filestr & chr(34) & chr(13)
+    scripttokillfile = scripttokillfile & "end tell"
+
+    on error resume next
+        macscript (scripttokillfile)
+    on error goto 0
+    #end if
+end function
+
+function tomacpath(posixpath as string) as string
+    ' this function transforms a posix path into a macos path
+    ' e.g. "/users/<user>" --> "macintoshhd:users:<user>"
+    #if mac then
+    tomacpath = macscript("set mac_path to posix file " & chr(34) & posixpath & chr(34) & " as string")
+    #end if
+end function
+
+function getmacdir(name as string, normalize as boolean) as string
+    #if mac then
+        select case name
+            case "$home"
+                name = "home folder"
+            case "$applications"
+                name = "applications folder"
+            case "$documents"
+                name = "documents folder"
+            case "$downloads"
+                name = "downloads folder"
+            case "$desktop"
+                name = "desktop folder"
+            case "$tmpdir"
+                name = "temporary items"
+        end select
+        getmacdir = macscript("return posix path of (path to " & name & ") as string")
+        if normalize = true then
+            'normalize excel sandbox location
+            getmacdir = replace(getmacdir, "/library/containers/com.microsoft.excel/data", "")
+        end if
+    #else
+    #end if
+end function
+
+
+function toposixpath(byval macpath as string) as string
+    'this function accepts relative paths with backward and forward slashes: thisworkbook & "\test"
+    ' e.g. "macintoshhd:users:<user>" --> "/users/<user>"
+
+    dim s as string
+    dim leadingslash as boolean
+    
+    #if mac then
+    if macpath = "" then
+        toposixpath = ""
+    else
+        toposixpath = replace(macpath, "\", "/")
+        toposixpath = macscript("return posix path of (" & chr(34) & macpath & chr(34) & ") as string")
+    end if
+    #end if
+end function
+
+sub showerror(filename as string, optional message as string = "")
+    ' shows a msgbox with the content of a text file
+
+    dim content as string
+    dim errorsheet as worksheet
+
+    const ok_button_error = 16
+    const auto_dismiss = 0
+    
+    if message = "" then
+        content = readfile(filename)
+    else
+        content = message
+    end if
+    
+    log_vba_error (content)
+
+    if getconfig("show_error_popups", "true") = "false" then
+        if sheetexists(thisworkbook, "error") = false then
+            set errorsheet = thisworkbook.sheets.add()
+            errorsheet.name = "error"
+        else
+            set errorsheet = thisworkbook.sheets("error")
+        end if
+        errorsheet.range("a1").value = content
+    else
+        #if mac then
+            msgbox content, vbcritical, "error"
+        #else
+            content = content & vbcrlf
+            content = content & "press ctrl+c to copy this message to the clipboard."
+    
+            wscript.popup content, auto_dismiss, "error", ok_button_error
+        #end if
+    end if
+end sub
+
+function expandenvironmentstrings(byval s as string)
+    ' expand environment variables
+    dim envstring as string
+    dim pathparts as variant
+    dim i as integer
+    #if mac then
+        if left(s, 1) = "$" then
+            pathparts = split(s, "/")
+            envstring = pathparts(0)
+            expandenvironmentstrings = getmacdir(envstring, true)
+            for i = 1 to ubound(pathparts)
+                if right$(expandenvironmentstrings, 1) = "/" then
+                    expandenvironmentstrings = expandenvironmentstrings & pathparts(i)
+                else
+                    expandenvironmentstrings = expandenvironmentstrings & "/" & pathparts(i)
+                end if
+            next i
+        else
+            expandenvironmentstrings = s
+        end if
+    #else
+        expandenvironmentstrings = wscript.expandenvironmentstrings(s)
+    #end if
+end function
+
+function readfile(byval filename as string)
+    ' read a text file
+
+    dim content as string
+    dim token as string
+    dim filenum as integer
+    dim objshell as object
+    dim linebreak as variant
+
+    #if mac then
+        filename = tomacpath(filename)
+        linebreak = vblf
+    #else
+        filename = expandenvironmentstrings(filename)
+        linebreak = vbcrlf
+    #end if
+
+    filenum = freefile
+    content = ""
+
+    ' read text file
+    open filename for input as #filenum
+        do while not eof(filenum)
+            line input #filenum, token
+            content = content & token & linebreak
+        loop
+    close #filenum
+
+    readfile = content
+end function
+
+#if app = "microsoft excel" then
+function sheetexists(wb as workbook, sheetname as string) as boolean
+    dim sht as worksheet
+    on error resume next
+        set sht = wb.sheets(sheetname)
+    on error goto 0
+    sheetexists = not sht is nothing
+end function
+#end if
+
+function getbasename(wb as string) as string
+    dim extension as string
+    extension = lcase$(right$(wb, 4))
+    if extension = ".xls" or extension = ".xla" or extension = ".xlt" then
+        getbasename = left$(wb, len(wb) - 4)
+    else
+        getbasename = left$(wb, len(wb) - 5)
+    end if
+end function
+
+function has_dynamic_array() as boolean
+    has_dynamic_array = false
+    on error goto errhandler
+        application.worksheetfunction.unique ("dummy")
+        has_dynamic_array = true
+    exit function
+errhandler:
+    has_dynamic_array = false
+end function
+
+public function createguid() as string
+    randomize timer() + application.hwnd
+    ' https://stackoverflow.com/a/46474125/918626
+    do while len(createguid) < 32
+        if len(createguid) = 16 then
+            '17th character holds version information
+            createguid = createguid & hex$(8 + cint(rnd * 3))
+        end if
+        createguid = createguid & hex$(cint(rnd * 15))
+    loop
+    createguid = mid(createguid, 1, 8) & "-" & mid(createguid, 9, 4) & "-" & mid(createguid, 13, 4) & "-" & mid(createguid, 17, 4) & "-" & mid(createguid, 21, 12)
+end function
+
+function checkconda(condapath as string) as boolean
+    ' check if the conda executable exists.
+    ' if it doesn't, conda is too old and the interpreter setting has to be used instead of conda settings
+    dim condaexecutable as string
+    dim condaexists as boolean
+    #if mac then
+        condaexecutable = condapath & "\condabin\conda"
+    #else
+        condaexecutable = condapath & "\condabin\conda.bat"
+    #end if
+    ' replace space escape character ^ to check if path exists
+    condaexists = fileexists(replace(condaexecutable, "^", ""))
+    if condaexists = false and condapath <> "" then
+        msgbox "your conda version seems to be too old for the conda settings. use the interpreter setting instead."
+    end if
+    checkconda = condaexists
+end function
+
+#if app = "microsoft excel" then
+function getfullname(wb as workbook) as string
+    ' the only case where this is still used is for directory-based config files, otherwise this is now handled in python
+    ' unlike the python version, this doesn't work for sharepoint and will just ignore a directory-based config file silently
+
+    dim total_found, i_parsing, i_env_var, slash_number as integer
+    dim found_path, one_drive_path, full_path_name, this_found_path as string
+
+    ' in the majority of cases, thisworkbook.fullname will provide the path of the
+    ' excel workbook correctly. unfortunately, when the user is using onedrive
+    ' this doesn't work. this function will attempt to find the local path.
+    ' this uses code from daniel guetta and
+    ' https://stackoverflow.com/questions/33734706/excels-fullname-property-with-onedrive
+    
+    if instr(wb.fullname, "://") = 0 or wb.path = "" then
+        getfullname = wb.fullname
+        exit function
+    end if
+        
+    ' according to the link above, there are three possible environment variables
+    ' the user's onedrive folder could be located in
+    '      "onedrivecommercial", "onedriveconsumer", "onedrive"
+    '
+    ' furthermore, there are two possible formats for onedrive urls
+    '    1. "https://companyname-my.sharepoint.com/personal/username_domain_com/documents" & file.fullname
+    '    2. "https://d.docs.live.net/d7bbaa#######1/" & file.fullname
+    ' in the first case, we can find the true path by just looking for everything after /documents. in the
+    ' second, we need to look for the fourth slash in the url
+    '
+    ' the code below will try every combination of the three environment variables above, and
+    ' each of the two methods of parsing the url. the file is found in *exactly* one of those
+    ' locations, then we're good to go.
+    '
+    ' note that this still leaves a gap - if this file (file a) is in a location that is not covered by the
+    ' eventualities above and a file of the exact same name (file b) exists in one of the locations that is
+    ' covered above, then this function will identify file b's location as the location of this workbook,
+    ' which would be wrong
+    total_found = 0
+    
+    for i_parsing = 1 to 2
+        if i_parsing = 1 then
+            ' parse using method 1 above; find /documents and take everything after, including the
+            ' leading slash
+            if instr(1, wb.fullname, "/documents") then
+                full_path_name = mid(wb.fullname, instr(1, wb.fullname, "/documents") + len("/documents"))
+            else
+                full_path_name = ""
+            end if
+        else
+            ' parse using method 2; find everything after the fourth slash, including that fourth
+            ' slash
+            dim i_pos as integer
+            
+            ' start at the last slash in https://
+            i_pos = 8
+
+            for slash_number = 1 to 2
+                i_pos = instr(i_pos + 1, wb.fullname, "/")
+            next slash_number
+            
+            full_path_name = mid(wb.fullname, i_pos)
+        end if
+        
+        ' replace forward slahes with backslashes on windows
+        full_path_name = replace(full_path_name, "/", application.pathseparator)
+        
+        
+        if full_path_name <> "" then
+            #if not mac then
+            for i_env_var = 1 to 3
+                    one_drive_path = environ(choose(i_env_var, "onedrivecommercial", "onedriveconsumer", "onedrive"))
+                
+                    if (one_drive_path <> "") and fileexists(one_drive_path & full_path_name) then
+                        this_found_path = one_drive_path & full_path_name
+                        
+                        if this_found_path <> found_path then
+                            total_found = total_found + 1
+                            found_path = this_found_path
+                        end if
+                    end if
+            next i_env_var
+            #end if
+        end if
+    next i_parsing
+        
+    if total_found = 1 then
+        getfullname = found_path
+        exit function
+    end if
+
+end function
+#end if
+
+function getazureadaccesstoken( _
+    optional tenantid as string, _
+    optional clientid as string, _
+    optional port as string, _
+    optional scopes as string, _
+    optional username as string, _
+    optional clipath as string _
+)
+    dim nowts as long, expirests as long
+    dim kwargs as string
+
+    if tenantid = "" then
+        tenantid = getconfig("azuread_tenant_id")
+    end if
+    if clientid = "" then
+        clientid = getconfig("azuread_client_id")
+    end if
+    if port = "" then
+        port = getconfig("azuread_port")
+    end if
+    if scopes = "" then
+        scopes = getconfig("azuread_scopes")
+    end if
+    if username = "" then
+        username = getconfig("azuread_username")
+    end if
+    if clipath = "" then
+        clipath = getconfig("cli_path")
+    end if
+    if clipath = "" then
+        kwargs = "tenant_id='" & tenantid & "', "
+        kwargs = kwargs & "client_id='" & clientid & "', "
+        if port <> "" then
+            kwargs = kwargs & "port='" & port & "', "
+        end if
+        if scopes <> "" then
+            kwargs = kwargs & "scopes='" & scopes & "', "
+        end if
+        if username <> "" then
+            kwargs = kwargs & "username='" & username & "', "
+        end if
+    else
+        kwargs = "--tenant_id=" & tenantid & " "
+        kwargs = kwargs & "--client_id=" & clientid & " "
+        if port <> "" then
+            kwargs = kwargs & "--port=" & port & " "
+        end if
+        if scopes <> "" then
+            kwargs = kwargs & "--scopes=" & scopes & " "
+        end if
+        if username <> "" then
+            kwargs = kwargs & "--username=" & username & " "
+        end if
+    end if
+
+    expirests = getconfig("azuread_access_token_expires_on_" & clientid, 0)
+    nowts = datediff("s", #1/1/1970#, converttoutc(now()))
+
+    if (expirests > 0) and (nowts < (expirests - 30)) then
+        getazureadaccesstoken = getconfig("azuread_access_token_" & clientid)
+        exit function
+    else
+        if clipath <> "" then
+            runfrozenpython clipath, "auth azuread " & kwargs
+        else
+            runpython "from xlwings import cli;cli._auth_aad(" & kwargs & ")"
+        end if
+        #if mac then
+            ' runpython on macos is async: 60s should be enough if you have to login from scratch
+            dim i as integer
+            for i = 1 to 60
+                expirests = getconfig("azuread_access_token_expires_on_" & clientid, 0)
+                if (nowts < (expirests - 30)) then
+                    getazureadaccesstoken = getconfig("azuread_access_token_" & clientid)
+                    exit function
+                end if
+                application.wait (now + timevalue("0:00:01"))
+            next i
+        #else
+            getazureadaccesstoken = getconfig("azuread_access_token_" & clientid)
+        #end if
+    end if
+end function
+
+
+
+'attribute vb_name = "remote"
+
+function runremotepython( _
+    url as string, _
+    optional auth as string, _
+    optional apikey as string, _
+    optional include as string, _
+    optional exclude as string, _
+    optional headers as variant, _
+    optional timeout as integer, _
+    optional proxyserver as string, _
+    optional proxybypasslist as string, _
+    optional proxyusername as string, _
+    optional proxypassword as string, _
+    optional enableautoproxy as string, _
+    optional insecure as string, _
+    optional followredirects as string _
+)
+
+    dim wb as workbook
+    set wb = thisworkbook
+
+    ' config
+    ' takes the first value it finds in this order:
+    ' func arg, sheet config, directory config, user config
+    if include = "" then
+        include = getconfig("include")
+    end if
+    dim includearray() as string
+    if include <> "" then
+        includearray = split(include, ",")
+    end if
+
+    if exclude = "" then
+        exclude = getconfig("exclude")
+    end if
+    dim excludearray() as string
+    if exclude <> "" then
+        excludearray = split(exclude, ",")
+    end if
+
+    if include <> "" and exclude <> "" then
+        msgbox "either use 'include' or 'exclude', but not both!", vbcritical
+        exit function
+    end if
+
+    if include <> "" then
+        dim i as integer
+        for i = 1 to wb.worksheets.count
+            if not isinarray(wb.worksheets(i).name, includearray) then
+                redim preserve excludearray(0 to i)
+                excludearray(i) = wb.worksheets(i).name
+            end if
+        next
+    end if
+
+    if timeout = 0 then
+        timeout = getconfig("timeout", 0)
+    end if
+    if enableautoproxy = "" then
+        enableautoproxy = getconfig("enable_auto_proxy", false)
+    end if
+    if insecure = "" then
+        insecure = getconfig("insecure", false)
+    end if
+    if followredirects = "" then
+        followredirects = getconfig("follow_redirects", false)
+    end if
+    if proxypassword = "" then
+        proxypassword = getconfig("proxy_password", "")
+    end if
+    if proxyusername = "" then
+        proxyusername = getconfig("proxy_username", "")
+    end if
+    if proxyserver = "" then
+        proxyserver = getconfig("proxy_server", "")
+    end if
+    if proxybypasslist = "" then
+        proxybypasslist = getconfig("proxy_bypass_list", "")
+    end if
+    if apikey = "" then  ' deprecated: replaced by "auth"
+        apikey = getconfig("api_key", "")
+    end if
+    if auth = "" then
+        auth = getconfig("auth", "")
+    end if
+
+    ' request payload
+    dim payload as new dictionary
+    payload.add "client", "vba"
+    payload.add "version", xlwings_version
+    
+    dim bookpayload as new dictionary
+    bookpayload.add "name", thisworkbook.name
+    bookpayload.add "active_sheet_index", activesheet.index - 1
+    if typeof selection is range then
+        bookpayload.add "selection", application.selection.address(false, false)
+    else
+        bookpayload.add "selection", null
+    end if
+    payload.add "book", bookpayload
+
+    ' names
+    dim myname as name
+    dim mynames() as dictionary
+    dim nnames as integer
+    dim iname as integer
+    nnames = wb.names.count
+    if nnames > 0 then
+        redim mynames(nnames - 1)
+        for iname = 1 to nnames
+            set myname = wb.names(iname)
+            dim namedict as dictionary
+            set namedict = new dictionary
+            namedict.add "name", myname.name
+            dim isnamedrange as boolean
+            dim testrange as range
+            isnamedrange = false
+            on error resume next
+            set testrange = myname.referstorange
+            if err.number = 0 then isnamedrange = true
+            on error goto 0
+            if isnamedrange then
+                namedict.add "sheet_index", myname.referstorange.parent.index - 1
+                namedict.add "address", myname.referstorange.address(false, false)
+                namedict.add "book_scope", typeof myname.parent is workbook
+            else
+                ' named constants and formulas
+                namedict.add "sheet_index", null
+                namedict.add "address", null
+                namedict.add "book_scope", null
+            end if
+            set mynames(iname - 1) = namedict
+        next
+        payload.add "names", mynames
+    else
+        payload.add "names", array()
+    end if
+
+    dim sheetspayload() as dictionary
+    redim sheetspayload(wb.worksheets.count - 1)
+    for i = 1 to wb.worksheets.count
+        dim sheetdict as dictionary
+        set sheetdict = new dictionary
+        sheetdict.add "name", wb.worksheets(i).name
+
+        ' pictures
+        dim pic as shape
+        dim pics() as dictionary
+        dim nshapes as integer
+        dim ishape as integer
+        dim ipic as integer
+        nshapes = wb.worksheets(i).shapes.count
+        if (nshapes > 0) and not (isinarray(wb.worksheets(i).name, excludearray)) then
+            ipic = 0
+            for ishape = 1 to nshapes
+                set pic = wb.worksheets(i).shapes(ishape)
+                if pic.type = msopicture then
+                    redim preserve pics(ipic)
+                    dim picdict as dictionary
+                    set picdict = new dictionary
+                    picdict.add "name", pic.name
+                    picdict.add "height", pic.height
+                    picdict.add "width", pic.width
+                    set pics(ipic) = picdict
+                    ipic = ipic + 1
+                end if
+            next
+            sheetdict.add "pictures", pics
+        else
+            sheetdict.add "pictures", array()
+        end if
+
+        ' values
+        dim values as variant
+        if isinarray(wb.worksheets(i).name, excludearray) then
+            values = array(array())
+        elseif isempty(wb.worksheets(i).usedrange.value) then
+            values = array(array())
+        else
+            dim startrow as integer, startcol as integer
+            dim nrows as integer, ncols as integer
+            dim myusedrange as range
+            with wb.worksheets(i).usedrange
+                startrow = .row
+                startcol = .column
+                nrows = .rows.count
+                ncols = .columns.count
+            end with
+            with wb.worksheets(i)
+                set myusedrange = .range( _
+                    .cells(1, 1), _
+                    .cells(startrow + nrows - 1, startcol + ncols - 1) _
+                )
+                values = myusedrange.value
+                if myusedrange.count = 1 then
+                    values = array(array(values))
+                end if
+            end with
+        end if
+        sheetdict.add "values", values
+        set sheetspayload(i - 1) = sheetdict
+    next
+    payload.add "sheets", sheetspayload
+    
+    dim myrequest as new webrequest
+    set myrequest.body = payload
+
+    ' debug.print myrequest.body
+
+    ' headers
+    ' expected as dictionary and currently not supported via xlwings.conf
+    ' providing the authorization header will ignore the api_key
+    dim authheader as boolean
+    authheader = false
+    if not ismissing(headers) then
+        dim mykey as variant
+        for each mykey in headers.keys
+            myrequest.addheader cstr(mykey), headers(mykey)
+        next
+        if headers.exists("authorization") then
+            authheader = true
+        end if
+    end if
+
+    if authheader = false then
+        if apikey <> "" then  ' deprecated: replaced by "auth"
+            myrequest.addheader "authorization", apikey
+        end if
+        if auth <> "" then
+            myrequest.addheader "authorization", auth
+        end if
+    end if
+
+    ' api call
+    myrequest.method = webmethod.httppost
+    myrequest.format = webformat.json
+
+    dim myclient as new webclient
+    myclient.baseurl = url
+    if timeout <> 0 then
+        myclient.timeoutms = timeout
+    else
+        myclient.timeoutms = 30000 ' set default to 30s
+    end if
+    if proxybypasslist <> "" then
+        myclient.proxybypasslist = proxybypasslist
+    end if
+    if proxyserver <> "" then
+        myclient.proxyserver = proxyserver
+    end if
+    if proxyusername <> "" then
+        myclient.proxyusername = proxyusername
+    end if
+    if proxypassword <> "" then
+        myclient.proxypassword = proxypassword
+    end if
+    if enableautoproxy <> false then
+        myclient.enableautoproxy = enableautoproxy
+    end if
+    if insecure <> false then
+        myclient.insecure = insecure
+    end if
+    if followredirects <> false then
+        myclient.followredirects = followredirects
+    end if
+
+    dim myresponse as webresponse
+    set myresponse = myclient.execute(myrequest)
+    
+    ' debug.print myresponse.content
+    
+    ' parse json response and run functions
+    if myresponse.statuscode = webstatuscode.ok then
+        dim action as dictionary
+        for each action in myresponse.data("actions")
+            application.run action("func"), wb, action
+        next
+    else
+        if myresponse.content <> "" then
+            msgbox myresponse.content, vbcritical, "error"
+        else
+            msgbox myresponse.statusdescription & " (" & myresponse.statuscode & ")", vbcritical, "error"
+        end if
+    end if
+
+end function
+
+' helpers
+function getrange(wb as workbook, action as dictionary)
+    if action("row_count") = 1 and action("column_count") = 1 then
+        set getrange = wb.worksheets( _
+            action("sheet_position") + 1).cells(action("start_row") + 1, _
+            action("start_column") + 1 _
+        )
+    else
+        with wb.worksheets(action("sheet_position") + 1)
+            set getrange = .range( _
+                .cells(action("start_row") + 1, action("start_column") + 1), _
+                .cells( _
+                    action("start_row") + action("row_count"), _
+                    action("start_column") + action("column_count") _
+                ) _
+            )
+        end with
+    end if
+end function
+
+function utf8toutf16(byval strtext as string) as string
+    ' macos only: apparently, excel uses utf-16 to represent string literals
+    ' taken from https://stackoverflow.com/a/64624336/918626
+    dim i&, l1&, l2&, l3&, l4&, l&
+    for i = 1 to len(strtext)
+        l1 = asc(mid(strtext, i, 1))
+        if i + 1 <= len(strtext) then l2 = asc(mid(strtext, i + 1, 1))
+        if i + 2 <= len(strtext) then l3 = asc(mid(strtext, i + 2, 1))
+        if i + 3 <= len(strtext) then l4 = asc(mid(strtext, i + 3, 1))
+        select case l1
+        case 1 to 127
+            l = l1
+        case 194 to 223
+            l = ((l1 and &h1f) * 2 ^ 6) or (l2 and &h3f)
+            i = i + 1
+        case 224 to 239
+            l = ((l1 and &hf) * 2 ^ 12) or ((l2 and &h3f) * 2 ^ 6) or (l3 and &h3f)
+            i = i + 2
+        case 240 to 255
+            l = ((l1 and &h7) * 2 ^ 18) or ((l2 and &h3f) * 2 ^ 12) or ((l3 and &h3f) * 2 ^ 6) or (l4 and &h3f)
+            i = i + 4
+        case else
+            l = 63 ' question mark
+        end select
+        utf8toutf16 = utf8toutf16 & iif(l < 55296, worksheetfunction.unichar(l), "?")
+    next i
+end function
+
+function hextorgb(byval hexcolor as string) as variant
+    ' based on https://stackoverflow.com/a/63779233/918626
+    dim red as string, green as string, blue as string
+    hexcolor = replace(hexcolor, "#", "")
+    red = val("&h" & mid(hexcolor, 1, 2))
+    green = val("&h" & mid(hexcolor, 3, 2))
+    blue = val("&h" & mid(hexcolor, 5, 2))
+    hextorgb = rgb(red, green, blue)
+end function
+
+function isinarray(stringtobefound as string, arr as variant) as boolean
+    ' based on https://stackoverflow.com/a/38268261/918626
+    if isempty(arr) then
+        isinarray = false
+        exit function
+    end if
+    dim i as integer
+    on error goto errhandler
+    for i = lbound(arr) to ubound(arr)
+        if trim(arr(i)) = stringtobefound then
+            isinarray = true
+            exit function
+        end if
+    next i
+    on error goto 0
+    isinarray = false
+errhandler:
+    isinarray = false
+end function
+
+function base64topic(base64string as variant) as string
+    dim temppath as string
+    ' todo: handle other image formats than png
+    #if mac then
+        temppath = getmacdir("$home", false) & "xlwings-" & createguid() & ".png"
+        dim rv as variant
+        rv = executeinshell("echo """ & base64string & """ | base64 -d > " & temppath).output
+    #else
+        temppath = environ("temp") & "\xlwings-" & createguid() & ".png"
+        open temppath for binary as #1
+           put #1, 1, base64decode(base64string)
+        close #1
+    #end if
+    base64topic = temppath
+end function
+
+' functions
+sub setvalues(wb as workbook, action as dictionary)
+    dim arr() as variant
+    dim i as long, j as long
+    dim values as collection, valuerow as collection
+
+    set values = action("values")
+    redim arr(values.count, values(1).count)
+
+    for i = 1 to values.count
+        set valuerow = values(i)
+        for j = 1 to valuerow.count
+            on error resume next
+                ' todo: will be replaced when backend sends location of dates
+                arr(i - 1, j - 1) = webhelpers.parseiso(valuerow(j))
+            if err.number <> 0 then
+                #if mac then
+                if application.istext(valuerow(j)) then
+                    arr(i - 1, j - 1) = utf8toutf16(valuerow(j))
+                else
+                    arr(i - 1, j - 1) = valuerow(j)
+                end if
+                #else
+                    arr(i - 1, j - 1) = valuerow(j)
+                #end if
+            end if
+            on error goto 0
+        next j
+    next i
+    getrange(wb, action).value = arr
+end sub
+
+sub clearcontents(wb as workbook, action as dictionary)
+    getrange(wb, action).clearcontents
+end sub
+
+sub addsheet(wb as workbook, action as dictionary)
+    dim mysheet as worksheet
+    set mysheet = wb.sheets.add
+    mysheet.move after:=worksheets(action("args")(1) + 1)
+    if not isnull(action("args")(2)) then
+        mysheet.name = action("args")(2)
+    end if
+end sub
+
+sub setsheetname(wb as workbook, action as dictionary)
+    wb.sheets(action("sheet_position") + 1).name = action("args")(1)
+end sub
+
+sub setautofit(wb as workbook, action as dictionary)
+    if action("args")(1) = "columns" then
+        getrange(wb, action).columns.autofit
+    else
+        getrange(wb, action).rows.autofit
+    end if
+end sub
+
+sub setrangecolor(wb as workbook, action as dictionary)
+    getrange(wb, action).interior.color = hextorgb(action("args")(1))
+end sub
+
+sub activatesheet(wb as workbook, action as dictionary)
+    wb.sheets(action("args")(1) + 1).activate
+end sub
+
+sub addhyperlink(wb as workbook, action as dictionary)
+    getrange(wb, action).hyperlinks.add _
+        anchor:=getrange(wb, action), _
+        address:=action("args")(1), _
+        texttodisplay:=action("args")(2), _
+        screentip:=action("args")(3)
+end sub
+
+sub setnumberformat(wb as workbook, action as dictionary)
+    getrange(wb, action).numberformat = action("args")(1)
+end sub
+
+sub setpicturename(wb as workbook, action as dictionary)
+    wb.sheets(action("sheet_position") + 1).pictures(action("args")(1) + 1).name = action("args")(2)
+end sub
+
+sub setpictureheight(wb as workbook, action as dictionary)
+    wb.sheets(action("sheet_position") + 1).pictures(action("args")(1) + 1).height = action("args")(2)
+end sub
+
+sub setpicturewidth(wb as workbook, action as dictionary)
+    wb.sheets(action("sheet_position") + 1).pictures(action("args")(1) + 1).width = action("args")(2)
+end sub
+
+sub deletepicture(wb as workbook, action as dictionary)
+    wb.sheets(action("sheet_position") + 1).pictures(action("args")(1) + 1).delete
+end sub
+
+sub addpicture(wb as workbook, action as dictionary)
+    dim temppath as string
+    dim anchorcell as range
+    dim imgleft, imgtop, imgwidth, imgheight as long
+
+    temppath = base64topic(action("args")(1))
+    with wb.sheets(action("sheet_position") + 1)
+        set anchorcell = .cells(action("args")(3) + 1, action("args")(2) + 1)
+    end with
+    if action("args")(4) > 0 then
+        imgleft = action("args")(4)
+    else
+        imgleft = anchorcell.left
+    end if
+    if action("args")(5) > 0 then
+        imgtop = action("args")(5)
+    else
+        imgtop = anchorcell.top
+    end if
+
+    wb.sheets(action("sheet_position") + 1).shapes.addpicture temppath, false, true, imgleft, imgtop, -1, -1
+    on error resume next
+        kill temppath
+    on error goto 0
+end sub
+
+sub updatepicture(wb as workbook, action as dictionary)
+    dim img as picture
+    dim newimg as shape
+    dim temppath, imgname as string
+    dim imgleft, imgtop, imgwidth, imgheight as long
+    temppath = base64topic(action("args")(1))
+    set img = wb.sheets(action("sheet_position") + 1).pictures(action("args")(2) + 1)
+    imgname = img.name
+    imgleft = img.left
+    imgtop = img.top
+    imgwidth = img.width
+    imgheight = img.height
+    img.delete
+    set newimg = wb.sheets(action("sheet_position") + 1).shapes.addpicture(temppath, false, true, imgleft, imgtop, imgwidth, imgheight)
+    newimg.name = imgname
+    on error resume next
+        kill temppath
+    on error goto 0
+end sub
+
+sub alert(wb as workbook, action as dictionary)
+    dim myprompt as string, mytitle as string, mybuttons as string, mymode as string, mycallback as string
+    dim mystyle as integer, rv as integer
+    dim buttonresult as string
+
+    myprompt = action("args")(1)
+    mytitle = action("args")(2)
+    mybuttons = action("args")(3)
+    mymode = action("args")(4)
+    mycallback = action("args")(5)
+
+    select case mybuttons
+    case "ok"
+        mystyle = vba.vbokonly
+    case "ok_cancel"
+        mystyle = vba.vbokcancel
+    case "yes_no"
+        mystyle = vba.vbyesno
+    case "yes_no_cancel"
+        mystyle = vba.vbyesnocancel
+    end select
+
+    if mymode = "info" then
+        mystyle = mystyle + vba.vbinformation
+    elseif mymode = "critical" then
+        mystyle = mystyle + vba.vbcritical
+    end if
+
+    rv = msgbox(prompt:=myprompt, title:=mytitle, buttons:=mystyle)
+
+    select case rv
+    case 1
+        buttonresult = "ok"
+    case 2
+        buttonresult = "cancel"
+    case 6
+        buttonresult = "yes"
+    case 7
+        buttonresult = "no"
+    end select
+
+
+    if mycallback <> "" then
+        application.run mycallback, buttonresult
+    end if
+
+end sub
+
+sub setrangename(wb as workbook, action as dictionary)
+    getrange(wb, action).name = action("args")(1)
+end sub
+
+sub namesadd(wb as workbook, action as dictionary)
+    if isnull(action("sheet_position")) then
+        wb.names.add name:=action("args")(1), refersto:=action("args")(2)
+    else
+        wb.worksheets(action("sheet_position") + 1).names.add name:=action("args")(1), refersto:=action("args")(2)
+    end if
+end sub
+
+sub namedelete(wb as workbook, action as dictionary)
+    dim myname as name
+    for each myname in wb.names()
+        if (myname.name = action("args")(1)) and (myname.refersto = action("args")(2)) then
+            myname.delete
+            exit for
+        end if
+    next
+end sub
+
+sub runmacro(wb as workbook, action as dictionary)
+    dim nargs as integer
+    nargs = action("args").count
+    select case nargs
+    case 1
+        application.run action("args")(1), wb
+    case 2
+        application.run action("args")(1), wb, action("args")(2)
+    case 3
+        application.run action("args")(1), wb, action("args")(2), action("args")(3)
+    case 4
+        application.run action("args")(1), wb, action("args")(2), action("args")(3), action("args")(4)
+    case 5
+        application.run action("args")(1), wb, action("args")(2), action("args")(3), action("args")(4), action("args")(5)
+    case 6
+        application.run action("args")(1), wb, action("args")(2), action("args")(3), action("args")(4), action("args")(5), action("args")(6)
+    case 7
+        application.run action("args")(1), wb, action("args")(2), action("args")(3), action("args")(4), action("args")(5), action("args")(6), action("args")(7)
+    case 8
+        application.run action("args")(1), wb, action("args")(2), action("args")(3), action("args")(4), action("args")(5), action("args")(6), action("args")(7), action("args")(8)
+    case 9
+        application.run action("args")(1), wb, action("args")(2), action("args")(3), action("args")(4), action("args")(5), action("args")(6), action("args")(7), action("args")(8), action("args")(9)
+    case 10
+        application.run action("args")(1), wb, action("args")(2), action("args")(3), action("args")(4), action("args")(5), action("args")(6), action("args")(7), action("args")(8), action("args")(9), action("args")(10)
+    case 11
+        application.run action("args")(1), wb, action("args")(2), action("args")(3), action("args")(4), action("args")(5), action("args")(6), action("args")(7), action("args")(8), action("args")(9), action("args")(10), action("args")(11)
+    case else
+        err.raise vbobjecterror + 513, , "macro() only supports up to 10 arguments"
+    end select
+end sub
+
+sub rangedelete(wb as workbook, action as dictionary)
+    dim shift as string
+    shift = action("args")(1)
+    if shift = "up" then
+        getrange(wb, action).delete (xldeleteshiftdirection.xlshiftup)
+    else
+        getrange(wb, action).delete (xldeleteshiftdirection.xlshifttoleft)
+    end if
+end sub
+
+

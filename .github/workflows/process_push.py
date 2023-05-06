@@ -248,7 +248,7 @@ if __name__ == '__main__':
         # Edit that line with the version
         html_file[version_line] = f'<h2>Latest Version: {version}</h2>\n'
         
-        with open(expected_files['html_page'], 'w') as f:
+        with open(HTML_PAGE, 'w') as f:
             f.writelines(html_file)
     except Exception as e:
         errors.append(f'  - Error updating the version number in the HTML file; the error was {str(e)}')

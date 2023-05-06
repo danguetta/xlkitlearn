@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>XLKitLearn</title>
+    
+	<style>
+		body {
+			margin:           0;
+			padding:          0;
+			background-color: #ccc;
+            font-family:      'Open Sans', sans-serif;
+            line-height:      20pt
+		}
+
+		.container {
+			width:            800px;
+			margin:           25px auto 25px auto;
+			background-color: #fff;
+			border-radius:    10px;
+			padding:          20px;
+			box-sizing:       border-box;
+		}
+        
+        h1 {
+            text-align:       center;
+            padding-bottom:   20px
+        }
+
+        h2 {
+            text-align:       center;
+            padding-bottom:   20px
+        }        
+        
+        .menu_item {
+            padding-left:     30px;
+            padding-right:    30px;
+        }
+                
+        .icon {
+            width:            70px
+        }
+        
+        .divider
+        {
+            position:         relative;
+            margin-top:       30px;
+            height:           1px;
+        }
+
+        .div-transparent:before
+        {
+            content:          "";
+            position:         absolute;
+            top:              0;
+            left:             5%;
+            right:            5%;
+            width:            90%;
+            height:           1px;
+            background-image: linear-gradient(to right, transparent, rgb(48,49,51), transparent);
+        }
+	</style>
+    
+</head>
+<body>
+
+	<div class="container">
+        <a href="https://github.com/danguetta/xlkitlearn" target="_blank"><img decoding="async" loading="lazy" width="149" height="149" style="position: absolute; top: 25px; right: calc(50% - 400px); border: 0; z-index:100;" src="https://github.blog/wp-content/uploads/2008/12/forkme_right_gray_6d6d6d.png?resize=149%2C149" class="attachment-full size-full" alt="Fork me on GitHub" data-recalc-dims="1"></a>
+        
+		<div style="padding:30px">
+            <center><a href="https://www.xlkitlearn.com"><img src="img/xlkitlearn_logo.jpg" style="width:60%"></a></center>
+        </div>
+        <h1>Welcome to XLKitLearn!</h1>
+        <!-- Important - do not edit the line below - it is automatically modified by the push script -->
+<h2>Latest Version: ???</h2>
+        <!-- Important - do not edit the line above -->
+        
+        <p>XLKitLearn was designed to teach machine learning to non-technical students without the distraction of code - it exposes the power of <a href="https://scikit-learn.org/stable/">scikit-learn</a> through Excel. This page contains installation instructions - for more background, demos, and pedagogical notes, click on "more info" below.</p>
+        <br>
+        <center>
+        <table>
+            <tr>
+                <th class="menu_item"> <a href="https://danguetta.github.io/xlkitlearn/">   <img class="icon" src="img/demo.png"> </a>   </th>
+                <th class="menu_item"> <a href="#window_install">   <img class="icon" src="img/windows.png"> </a>   </th>
+                <th class="menu_item"> <a href="#mac_install">      <img class="icon" src="img/apple.png">   </a>   </th>
+                <th class="menu_item"> <a href="#docs">             <img class="icon" src="img/docs.png">    </a>   </th>
+            </tr>
+            
+            <tr>
+                <th> <a href="https://danguetta.github.io/xlkitlearn/">  More<br>info   </a>       </th>
+                <th> <a href="#window_install">  Windows<br>Installation   </a>       </th>
+                <th> <a href="#mac_install">     Mac<br>Installation       </a>       </th>
+                <th> <a href="#docs">            Documentation             </a>       </th>
+            </tr>
+        </table>
+        </center>
+        
+        <div class="divider div-transparent"></div>
+        
+        <h2 id="windows_install">Windows Installation</h2>
+        
+        <ol>
+            <li>Download the <a href="https://github.com/danguetta/xlkitlearn/releases/latest/download/XLKitLearn-x64.exe">XLKitLearn installer</a>. [Note: if you have a <i>very</i> old computer and you encounter issues, check out <a href="64_32_bit.html">this page</a>].
+            <li>Run the downloaded file. Windows will kick up a security warning. Click on "More info" and then "Run anyway".
+                    <center><img src="img/windows_security.jpg" width="80%"></center>
+            </li>
+            <li>You computer may pause for 10-20 seconds. You will then be shown another Windows security warning. Click on "Yes"
+                    <center><img src="img/windows_uac.jpg" width="35%"></center>
+            </li>
+            <li>The installer will then launch. Click on "Install", and let the installer do its thing.</li>
+            <li>Once the progress bar has completed, a black window will pop up that looks something like this - let it do its thing (note: XLKitLearn will <i>not</i> interfere with any version of Python already installed on your computer)
+                    <center><img src="img/windows_compiling.jpg" width="65%"></center>
+            </li>
+            <li>Click on "Finish" to exit the installer.</li>
+        </ol>
+        
+        The installation is now complete. Every time you want to launch a new instance of XLKitLearn, carry out the following steps:
+        <ol>
+            <li>Open Excel.</li>
+            <li>Go to the start menu, scroll down your list of programs, and find the "XLKitLearn" folder. Select the "XLKitLearn" item therein.
+                    <center><img src="img/windows_start_menu.jpg" width="30%"></center>
+            </li>
+            <li>In the resulting window, click on "Enable Content"
+                    <center><img src="img/windows_enable_content.jpg" width="70%"></center>
+            </li>
+            <li>You will immediately be prompted to save the file as follows:
+                    <center><img src="img/windows_save_warning.jpg" width="50%"></center>
+                Click "OK" and immediately press <code>Ctrl+S</code> save the file somewhere - XLKitLearn cannot be used before the file is saved.
+            </li>
+            <li>If you are using XLKitLearn for the first time, check whether the installation worked by entering your email address into the Excel and clicking on the first "Run" button
+                    <center><img src="img/windows_test_run.jpg" width="80%"></center>
+            <li>If the add-in runs successfully, the following screen should show up (note that the contents of cell D13 have been obscured. If you are installing this add-in as part of a class, your instructor might ask you to report the value in that cell to verify you've installed the add-in correctly)
+                    <center><img src="img/windows_test_success.jpg" width="80%"></center>
+            </li>
+        </ol>
+            
+        <div class="divider div-transparent"></div>
+        
+        <h2 id="mac_install">Mac Installation</h2>
+        
+        <ol>
+            <li>Bring up Spotlight Search by pressing <code>Command + Space</code>, and type "terminal" in the search bar. Click on the terminal icon:
+                    <center><img src="img/mac_find_terminal.png" width="70%"></center>
+            </li>
+            <li>Copy and paste the following line <i>exactly</i> into the terminal
+            
+                    <p><code>curl -sSL https://github.com/danguetta/xlkitlearn/releases/latest/download/XLKitLearn_installer.sh | bash</code></p>
+                
+                and then press <code>Enter</code>:
+                    <center><img src="img/mac_run_command.png" width="60%"></center>
+            <li>The command should take between 3 and 6 minutes to run, and end with the text <code>Successfully installed XLKitLearn!</code> in green:
+                    <center><img src="img/mac_end_command.png" width="60%"></center>
+                If your run ends with an error message in red instead, please red it carefully and follow the instructions contained therein. If you have any issues, reach out to whoever gave you the add-in.
+            </li>
+        </ol>
+        
+        The installation is now complete. Every time you want to launch a new instance of XLKitLearn, carry out the following steps:
+        <ol>
+            <li>Open Excel.</li>
+            <li>Go to your desktop and find the <code>XLKitLearn.xltm</code> file. Open it. (You will need to open this file every time you want to launch a blank version of XLKitLearn).</li>
+            <li>You will be asked to enable Macros - click "Enable Macros":
+                    <center><img src="img/mac_enable_macros.png" width="50%"></center>
+            </li>
+            <li>You will immediately be prompted to save the file as follows:
+                    <center><img src="img/mac_save_warning.jpg" width="50%"></center>
+                Click "OK" and immediately press <code>Command+S</code> save the file somewhere - XLKitLearn cannot be used before the file is saved.
+            </li>
+            <li>If you are using XLKitLearn for the first time, check whether the installation worked by entering your email address into the Excel and clicking on the first "Run" button
+                    <center><img src="img/windows_test_run.jpg" width="80%"></center>
+            <li>If the add-in runs successfully, the following screen should show up (note that the contents of cell D13 have been obscured. If you are installing this add-in as part of a class, your instructor might ask you to report the value in that cell to verify you've installed the add-in correctly)
+                    <center><img src="img/windows_test_success.jpg" width="80%"></center>
+            </li>
+            <li>Finally, click on the first "Edit Settings" button on the spreadsheet:
+                    <center><img src="img/mac_edit_settings.png" width="50%"></center>
+                And click "Select" and then "Grant Access"
+                    <center><img src="img/mac_sandbox.png" width="90%"></center>
+                (Because of Excel+Mac's truly Kafkaesque - and ineffectual - approach to file security, you might have to do this a few times).
+            </li>
+        </ol>
+                
+	</div>
+</body>
+</html>

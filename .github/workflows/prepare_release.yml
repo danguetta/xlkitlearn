@@ -18,7 +18,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        architecture: ['x64'] # 'x86', 
+        architecture: ['x86', 'x64'] 
     steps:
     - name: Starting and printing github context for debugging
       run: echo "$GITHUB_CONTEXT"

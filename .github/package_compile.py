@@ -81,3 +81,19 @@ except Exception as e:
         f.write('ERROR')
         f.write('')
         f.write(traceback.format_exc())
+
+# Try and detect MalwareBytes, and launch the instruction page if so
+try:
+    import os
+    import webbrowser
+    
+    if os.path.isdir(os.path.join(os.environ['PROGRAMFILES'], 'Malwarebytes')):
+        try:
+            webbrowser.get("C:/Program Files/Google/Chrome/Application/chrome.exe %s").open_new("xlkitlearn.com/malware_bytes.html")
+        except:
+            try:
+                webbrowser.open_new("xlkitlearn.com/malware_bytes.html")
+            except:
+                pass
+except:
+    pass

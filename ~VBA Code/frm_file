@@ -24,8 +24,8 @@ private sub lst_files_dblclick(byval cancel as msforms.returnboolean)
 end sub
 
 private sub userform_activate()
-    lst_files.width = me.width - 99
-    lst_files.height = me.height - 97
+    lst_files.width = me.width - 21.1
+    lst_files.height = me.height - 54.1
 end sub
 
 private sub userform_initialize()

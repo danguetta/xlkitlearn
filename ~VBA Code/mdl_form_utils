@@ -530,6 +530,12 @@ public function validate_formula(formula_text as string) as string
                 this_term = split(formula_parts(j) & " ", "(")
                 this_term = split(this_term(ubound(this_term)), ")")(0)
                 
+                ' if there is a comma inside the parentheses, assume it's a function with many
+                ' arguments and only take the first argument
+                if instr(1, this_term, ",") > 0 then
+                    this_term = split(this_term, ",")(0)
+                end if
+                
                 ' if we have interaction terms, split them out
                 this_term = split(this_term, "*")
                 

@@ -571,12 +571,9 @@ public sub validate_parameters_pred()
         if header_errors.count > 0 then
             lbl_training_data.width = formula_width_small
             lbl_training_data.controltiptext = t_bad_headers
-            lbl_training_data.backcolor = red
             
-            lbl_training_errors.backcolor = red
             lbl_training_errors.visible = true
             
-            pred_errors = true
         end if
     end if
     

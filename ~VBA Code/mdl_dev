@@ -107,6 +107,9 @@ public sub prepare_for_prod()
     ' hide the sheets, etc...
     check_debug_mode
     
+    ' select email box
+    activeworkbook.sheets("add-in").range("f17").select
+    
     ' end
     msgbox "please immediately save and close the workbook", vbinformation
 end sub

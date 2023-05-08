@@ -142,16 +142,20 @@
             <li>Bring up Spotlight Search by pressing <code>Command + Space</code>, and type "terminal" in the search bar. Click on the terminal icon:
                     <center><img src="img/mac_find_terminal.png" width="70%"></center>
             </li>
-            <li>Copy and paste the following line <i>exactly</i> into the terminal
+            <li>Click <button onclick="navigator.clipboard.writeText('curl -sSL https://github.com/danguetta/xlkitlearn/releases/latest/download/XLKitLearn_installer.sh | bash'); alert('The line has been copied to your clipboard; please paste it into your terminal and press enter.')">here</button> to copy and paste the following line <i>exactly</i> into the terminal:
             
-                    <p><code>curl -sSL https://github.com/danguetta/xlkitlearn/releases/latest/download/XLKitLearn_installer.sh | bash</code></p>
+                    <p><code><small>curl -sSL https://github.com/danguetta/xlkitlearn/releases/latest/download/XLKitLearn_installer.sh | bash</small></code></p>
                 
                 and then press <code>Enter</code>:
                     <center><img src="img/mac_run_command.png" width="60%"></center>
             <li>The command should take between 3 and 6 minutes to run, and end with the text <code>Successfully installed XLKitLearn!</code> in green:
                     <center><img src="img/mac_end_command.png" width="60%"></center>
-                If your run ends with an error message in red instead, please red it carefully and follow the instructions contained therein. If you have any issues, reach out to whoever gave you the add-in.
+                If your run ends with an error message in red instead, please read it carefully and follow the instructions contained therein. If you have any issues, reach out to whoever gave you the add-in.
             </li>
+            <li> You <i>may</i> see the dialogue below after the operation above is done. If you do, click on "OK"
+                    <center><img src="img/mac_terminal_excel_perms.png" width="25%"></center>
+            </li>
+            <li>You can now close the terminal window.</li>
         </ol>
         
         The installation is now complete. Every time you want to launch a new instance of XLKitLearn, carry out the following steps:

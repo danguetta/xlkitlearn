@@ -39,7 +39,7 @@ EOF
     printf "${YELLOW}Compiling packages${NC}\n"
     "$INSTALL_DIR"/bin/python -c "python_command_placeholder"
     printf "${YELLOW}Downloading add-in Excel${NC}\n"
-    curl -L -o ./Desktop/XLKitLearn.xltm "https://github.com/danguetta/XLKitLearn/releases/latest/download/XLKitLearn.xltm"
+    curl -L -o ~/Desktop/XLKitLearn.xltm "https://github.com/danguetta/XLKitLearn/releases/latest/download/XLKitLearn.xltm"
     printf "${GREEN}Successfully installed XLKitLearn!${NC}\n"
 else
     printf "${RED}I need a little help to complete the installation. Please type the words "conda activate" (without the quotes) below and press enter. Then, re-run exactly the same command you just ran.${NC}\n"

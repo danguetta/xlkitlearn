@@ -55,4 +55,5 @@ When you are ready to release a new version of the add-in:
 ## Modifying external packages
 
   - When updating the version of XLWings, ensure the `ShowError` function includes the line `log_vba_error (Content)` to log errors to the server.
+  - In the XLWings `CleanUp` function, add a call to `format_sheet` at the very end of the function
   - When updating `mdl_onedrive_path`, remove the `msgbox` line.

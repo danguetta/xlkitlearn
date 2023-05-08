@@ -397,6 +397,8 @@ private sub cleanup()
             killfileonmac tomacpath(toposixpath(log_file))
         #end if
     on error goto 0
+    
+    format_sheet
 end sub
 
 function xlpycommand()

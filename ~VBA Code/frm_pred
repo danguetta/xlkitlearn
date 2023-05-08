@@ -170,6 +170,12 @@ end sub
 ' ===========
 
 private sub cmd_save_click()
+    ' only activate workbook if necessary; on a mac, it can sometimes
+    ' cause the sheet to change
+    if activeworkbook.name <> thisworkbook.name then
+        thisworkbook.activate
+    end if
+    
     application.calculation = xlcalculationmanual
     
     ' save the settings to the worksheet

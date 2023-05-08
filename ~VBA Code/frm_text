@@ -9,6 +9,12 @@ private sub chk_sparse_output_click()
 end sub
 
 private sub cmd_save_click()
+    ' only activate workbook if necessary; on a mac, it can sometimes
+    ' cause the sheet to change
+    if activeworkbook.name <> thisworkbook.name then
+        thisworkbook.activate
+    end if
+
     ' save the settings to the worksheet
     
     dict_utils cell_current_text_settings, "source_data", txt_source_data.text

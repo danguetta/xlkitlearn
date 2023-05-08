@@ -74,8 +74,13 @@ public sub workbook_open()
     end if
     
     ' prompt to save the notebook
-    if activeworkbook.path = "" then
+    if thisworkbook.path = "" then
         #if mac then
+            ' do events to hide the checkboxes and show the buttons immediately, before
+            ' the user presses on "save"
+            doevents
+            activeworkbook.refreshall
+        
             ' on a pc, the beforesave event triggers reliably, and we can use it to
             ' set the default save format to a macro enabled workbook. on a mac, the
             ' event sometimes fails to triggers, so we have to change the default
@@ -112,6 +117,42 @@ private sub workbook_aftersave(byval success as boolean)
     
     ' check whether we should be in debug mode
     check_debug_mode
+    
+    ' reset the add-in
+    format_sheet
+    
+    #if mac then
+        ' the current version of xlwings isn't able to detect paths when using onedrive
+        ' for business. get_local_path is. until xlwings integrates that functionality,
+        ' we try and do it here
+        
+        dim full_name as string
+        dim local_name as string
+        dim root as string
+        
+        full_name = thisworkbook.fullname
+        local_name = getlocalpath(thisworkbook.fullname)
+        
+        if instr(1, full_name, "my.sharepoint") then
+            on error goto one_drive_error
+            
+            ' remove everything after my.sharepoint
+            full_name = mid(full_name, instr(1, full_name, "my.sharepoint") + len("my.sharepoint"))
+            
+            ' find the fourth slash, and remove everything before
+            full_name = mid(full_name, instr(instr(instr(instr(1, full_name, "/") + 1, full_name, "/") + 1, full_name, "/") + 1, full_name, "/") + 1)
+            
+            ' remove that tail from the local_name to find the stem
+            root = left(local_name, instr(1, local_name, full_name) - 2)
+            
+            ' put the stem in the conf
+            set_xlwings_conf "onedrive_commercial_mac", root
+            
+            exit sub
+one_drive_error:
+            msgbox "xlkitlearn was not able to figure out where the onedrive folder is stored on your computer. please save this file somewhere outside onedrive before using it.", vbexclamation
+        end if
+    #end if
 end sub
 
 private sub workbook_beforesave(byval saveasui as boolean, cancel as boolean)

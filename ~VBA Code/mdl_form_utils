@@ -88,7 +88,7 @@ public function validate_dataset(byref r, optional byval force_contiguous as boo
         
         ' if this cell reference doesn't contain a sheet, add it
         if instr(1, r, "!") = 0 then
-            r = "[" & activeworkbook.name & "]" & activeworkbook.activesheet.name & "!" & r
+            r = "[" & thisworkbook.name & "]" & thisworkbook.activesheet.name & "!" & r
         end if
         
         ' check whether we have a valid range

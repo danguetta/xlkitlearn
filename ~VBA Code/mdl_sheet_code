@@ -37,7 +37,7 @@ sub btn_edit_settings()
     ' if code isn't running, show settings
     if run_id() = "" and validate_settings_string("predictive", true) then
         ' ensure this workbook is saved
-        if activeworkbook.path = "" then
+        if thisworkbook.path = "" then
             msgbox t_book_unsaved, vbexclamation
             exit sub
         end if
@@ -50,7 +50,7 @@ sub btn_edit_text_settings()
     ' if code isn't running, show settings
     if run_id() = "" and validate_settings_string("text", true) then
         ' ensure this workbook is saved
-        if activeworkbook.path = "" then
+        if thisworkbook.path = "" then
             msgbox t_book_unsaved, vbexclamation
             exit sub
         end if
@@ -120,7 +120,7 @@ sub run_addin(f_name as string, this_status_cell as string)
     ' this function runs the add-in
     
     ' ensure this workbook is saved
-    if activeworkbook.path = "" then
+    if thisworkbook.path = "" then
         msgbox t_book_unsaved, vbexclamation
         exit sub
     end if
@@ -177,25 +177,11 @@ sub run_addin(f_name as string, this_status_cell as string)
     end if
     
     ' generate a run id
-    run_id true, asc(mid(email_provided, 1, 1)) + asc(mid(email_provided, 2, 1))
-    
-    'log the run on the server
+    dim email_stem as long
     on error resume next
-    
-    #if mac then
-        runpython "import requests; requests.post(url = 'http://guetta.org/addin/run.php'," & _
-                        "data = {'run_id':'" & run_id() & "', " & _
-                        "        'version':'" & addin_version() & "', " & _
-                        "        'email':'" & email_provided & "', " & _
-                        "        'platform':'mac'}, timeout = 10)"
-    #else
-        windows_curl "http://guetta.org/addin/run.php?run_id=" & run_id() & _
-                            "&version=" & addin_version() & _
-                            "&email=" & email_provided & _
-                            "&platform=windows"
-    #end if
-    
+    email_stem = asc(mid(email_provided, 1, 1)) + asc(mid(email_provided, 2, 1))
     on error goto 0
+    run_id true, email_stem
     
     ' disable all buttons
     disable_buttons
@@ -261,6 +247,33 @@ after_rename:
                 "exec('\n'.join([str(i) if i is not none else '' for i in code_sheet.range(code_range).value]), mod.__dict__); " & _
                 "mod.run_addin('" & f_name & "','" & new_sheet_name & "', " & udf_server & ")"
     
+    'log the run on the server
+    on error resume next
+    
+    #if mac then
+        ' if we're on a mac, we do not have access to an easy curl command, and we also
+        ' dont want to spawn a separate runpython statement. this is because on a mac,
+        ' excel doesn't pause until runpython is done, and so if we did use a separate
+        ' runpython statement to log the run, it might be running concurrently with the
+        ' main runpython statement and interfere with the error log file
+        
+        ' as such, we simply prepend the logging statement to the code_text
+        
+        code_text = "import requests; " & _
+                        "exec('''try:\n    requests.post(url  = 'http://guetta.org/addin/run.php', " & _
+                                                      "data = {'run_id':'" & run_id() & "', 'version':'" & _
+                                                           addin_version() & "', 'email':'" & email_provided & "'," & _
+                                                           "'platform':'mac'}, timeout=10);\nexcept:\n    pass''');" & code_text
+    #else
+        ' we're on windows; we can mercifully just do a curl
+        windows_curl "http://guetta.org/addin/run.php?run_id=" & run_id() & _
+                            "&version=" & addin_version() & _
+                            "&email=" & email_provided & _
+                            "&platform=windows"
+    #end if
+    
+    on error goto 0
+    
     dim run_python_result as string
     run_python_result = runpython(code_text)
     
@@ -287,10 +300,11 @@ public sub kill_addin()
     dim code_text as string
     
     code_text = "import os\n" & _
-                "import xlwings as wb\n" & _
+                "import xlwings as xw\n" & _
+                "import signal\n" & _
                 "try:\n" & _
                 "    os.kill(int(""" & wb_var("pid") & """), signal.sigterm)\n" & _
-                "    wb.book.caller().macro(""format_sheet"")()\n" & _
+                "    xw.book.caller().macro(""format_sheet"")()\n" & _
                 "except:\n" & _
                 "    pass"
     
@@ -307,6 +321,12 @@ end sub
 public sub format_sheet()
     ' this function will be called from python when the add-in is done running;
     ' it will format the sheet and reset the add-in
+
+    ' only activate workbook if necessary; on a mac, it can sometimes
+    ' cause the sheet to change
+    if activeworkbook.name <> thisworkbook.name then
+        thisworkbook.activate
+    end if
 
     ' re-enable the buttons
     enable_buttons

@@ -16,8 +16,8 @@ public sub check_debug_mode()
     ' alternatively, if the name of the file contains the word debugg (with two gs)
     ' the file will launch in debug mode
     
-    if (instr(1, activeworkbook.name, "debugg") > 0) or _
-                        ((activeworkbook.fileformat = 53) and _
+    if (instr(1, thisworkbook.name, "debugg") > 0) or _
+                        ((thisworkbook.fileformat = 53) and _
                             (wb_var("prepped_for_prod") <> "prod")) then
         debug_mode = true
         sht_code.visible = -1
@@ -108,7 +108,7 @@ public sub prepare_for_prod()
     check_debug_mode
     
     ' select email box
-    activeworkbook.sheets("add-in").range("f17").select
+    thisworkbook.sheets("add-in").range("f17").select
     
     ' end
     msgbox "please immediately save and close the workbook", vbinformation

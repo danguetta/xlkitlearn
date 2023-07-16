@@ -49,12 +49,28 @@ jobs:
       with:
         files: |
           .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe
-          XLKitLearn_installer.sh
-          version
-          XLKitLearn.xltm
-  push_files:
-    runs-on: windows-2022
+  push_non_windows_files:
+    env:
+      PROJECT: XLKitLearn
+      APP_ID: YaocNmA99ZWqRnwKgQKZKayRJojMjq
+      APP_PUBLISHER: Dynamic Analytics LLC
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_NAME: ${{ github.event.release.name }}
+    runs-on: windows-2022 
     steps:
+    - name: Starting and printing github context for debugging
+      run: echo "$GITHUB_CONTEXT"
+    - name: Check out repo code
+      uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+        architecture: ${{ matrix.architecture }}
+    - name: Run the installer prep
+      shell: bash
+      run: |
+        python .github/workflows/prepare_release.py
     - name: Upload files to the GitHub release page
       uses: softprops/action-gh-release@v1
       with:

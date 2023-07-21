@@ -44,11 +44,15 @@ jobs:
     - name: Rename the installer to include bitness
       shell: bash
       run: mv .github/Output/${{ env.PROJECT }}.exe .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe
+    - name: Rename the zipped up Python distro to include bitness
+      shell: bash
+      run: mv python-distro.zip python-distro-${{ matrix.architecture }}.zip
     - name: Upload files to the GitHub release page
       uses: softprops/action-gh-release@v1
       with:
         files: |
           .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe
+          .github/Output/python-distro-${{ matrix.architecture }}.zip
   push_non_windows_files:
     env:
       PROJECT: XLKitLearn

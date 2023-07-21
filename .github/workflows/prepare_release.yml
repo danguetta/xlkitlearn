@@ -38,7 +38,7 @@ jobs:
         python -m pip install -r requirements.txt
     - name: Create zipped up Python distro
       run: |
-        python .github/workflows/zip_up_python.py
+        python .github/workflows/zip_up_python.py .github/Output/python-distro-${{ matrix.architecture }}.zip
     - name: Add the location of the install creator to the path
       shell: bash
       run: echo "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x64" >> $GITHUB_PATH
@@ -47,9 +47,6 @@ jobs:
     - name: Rename the installer to include bitness
       shell: bash
       run: mv .github/Output/${{ env.PROJECT }}.exe .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe
-    - name: Rename the zipped up Python distro to include bitness
-      shell: bash
-      run: mv python-distro.zip python-distro-${{ matrix.architecture }}.zip
     - name: Upload files to the GitHub release page
       uses: softprops/action-gh-release@v1
       with:

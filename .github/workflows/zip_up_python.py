@@ -7,6 +7,7 @@
 
 import os
 import shutil
+import sys
 
 # =================
 # =  Main Script  =
@@ -18,4 +19,4 @@ if __name__ == '__main__':
     python_location = os.environ['pythonLocation']
     
     # Zip up that entire folder
-    shutil.make_archive('python-distro.zip' , 'zip', python_location)
+    shutil.make_archive(sys.argv[1], 'zip', python_location)

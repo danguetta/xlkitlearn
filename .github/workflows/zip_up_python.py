@@ -18,4 +18,4 @@ if __name__ == '__main__':
     python_location = os.environ['pythonLocation']
     
     # Zip up that entire folder
-    shutil.make_archive('python-distro.zip' ,' zip', python_location)
+    shutil.make_archive('python-distro.zip' , 'zip', python_location)

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>XLKitLearn</title>
+    
+	<style>
+		body {
+			margin:           0;
+			padding:          0;
+			background-color: #ccc;
+            font-family:      'Open Sans', sans-serif;
+            line-height:      20pt
+		}
+
+		.container {
+			width:            800px;
+			margin:           25px auto 25px auto;
+			background-color: #fff;
+			border-radius:    10px;
+			padding:          20px;
+			box-sizing:       border-box;
+		}
+        
+        h1 {
+            text-align:       center;
+            padding-bottom:   20px
+        }
+
+        h2 {
+            text-align:       center;
+            padding-bottom:   20px
+        }        
+        
+        .menu_item {
+            padding-left:     30px;
+            padding-right:    30px;
+        }
+                
+        .icon {
+            width:            70px
+        }
+        
+        .divider
+        {
+            position:         relative;
+            margin-top:       30px;
+            height:           1px;
+        }
+
+        .div-transparent:before
+        {
+            content:          "";
+            position:         absolute;
+            top:              0;
+            left:             5%;
+            right:            5%;
+            width:            90%;
+            height:           1px;
+            background-image: linear-gradient(to right, transparent, rgb(48,49,51), transparent);
+        }
+	</style>
+    
+</head>
+<body>
+
+	<div class="container">
+		<div style="padding:30px">
+            <center><a href="https://www.xlkitlearn.com"><img src="img/xlkitlearn_logo.jpg" style="width:60%"></a></center>
+        </div>
+        <h1>Installing on Windows Without the .exe File</h1>
+        
+        <p>Some students will not be able to install XLKitLearn using the .exe file. This is likely to be true if you have a corporate computer. If this is you, the installation instructions below <i>might</i> work for you.</p>
+        
+        <p>If the instructions below don't work for you, you migth be out of luck. But all is not lost - if you're at Columbia Business School, you can still hopefully take the class using one of the following strategies:</p>
+        <ul>
+            <li>Use one of the computers around CBS, on which you will be able to install the add-in.</li>
+            <li>Get a loaner PC from ITG for the duration of the course, if they have one available - email to ask them.</li>
+            <li>Use a friend's computer, or an old computer, for the homeworks. You will <b>not</b> need the add-in for the final exam.</li>
+        </ul>
+        
+        <div class="divider div-transparent"></div>
+        <br>
+        
+        Here are the alternative installation instructions; feel free to email us if you encounter any issues.
+        
+        <ol>
+            <li>Go to any explorer window, and type <code>%LOCALAPPDATA%</code> into the address bar; press enter.
+                <center><img src="img/local_app_data.jpg" width="60%"></center>
+                For most people, this will take you to the <code>C:\Users\USERNAME\AppData\Local</code> folder, where <code>USERNAME</code> is your username, but if it takes you elsewhere, that's fine!
+            </li>
+            <li>Inside this folder, create a NEW folder called <code>XLKitLearn</code>. For most people, this will mean you now have a folder called <code>C:\Users\USERNAME\AppData\Local\XLKitLearn</code>.
+            <li>Download this <a href="https://github.com/danguetta/xlkitlearn/releases/latest/download/python-distro-x64.zip">zip file</a>. [Note: if you have a <i>very</i> old computer and you encounter issues, check out <a href="64_32_bit.html">this page</a>, and if you determine you have a 32-bit computer, download this <a href="https://github.com/danguetta/xlkitlearn/releases/latest/download/python-distro-x86.zip">alternative zip file</a>].</li>
+            <li>Unzip this zip file directly into the folder you created in step 2. This might take a while.</li>
+            <li>Download <a href="https://github.com/danguetta/xlkitlearn/releases/latest/download/XLKitLearn.xltm">this xltm file</a>. You should put this somewhere safe like your desktop - every time you want to run the add-in, you'll need to double click on this Excel template file.</li>
+            <li>You're done! Go back to the <a href="index.html#windows_install_part_2">second part</a> of the Windows installation instructions on the main install page. Instead of finding "XLKitLearn" in the start menu when you want to run the add-in, you'll be opening the <code>xltm</code> file you downloaded in the previous step.</li>
+        </ol>
+        
+        If you ever want to uninstall the add-in, you can safely delete the XLKitLearn folder you created above - that's it!        
+	</div>
+</body>
+</html>

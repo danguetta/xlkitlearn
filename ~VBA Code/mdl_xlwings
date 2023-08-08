@@ -1044,10 +1044,20 @@ function readfile(byval filename as string)
 
     ' read text file
     open filename for input as #filenum
-        do while not eof(filenum)
+        dim file_end as boolean
+        dim err_num
+        while not file_end
+            on error resume next
             line input #filenum, token
-            content = content & token & linebreak
-        loop
+            err_num = err.number
+            on error goto 0
+            
+            if err_num = 0 then
+                content = content & token & linebreak
+            else
+                file_end = true
+            end if
+        wend
     close #filenum
 
     readfile = content

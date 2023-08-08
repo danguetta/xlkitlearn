@@ -52,7 +52,7 @@ jobs:
       run: dotnet tool install --global AzureSignTool 
     - name: Sign the installer
       shell: bash
-      run: AzureSignTool sign -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}"-kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc ${{ secrets.AZURE_CERT_NAME }} -tr http://timestamp.digicert.com -v .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe
+      run: AzureSignTool sign -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc ${{ secrets.AZURE_CERT_NAME }} -tr http://timestamp.digicert.com -v .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe
     - name: Upload files to the GitHub release page
       uses: softprops/action-gh-release@v1
       with:

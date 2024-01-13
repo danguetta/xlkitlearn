@@ -195,7 +195,7 @@ if __name__ == '__main__':
         prod_version = False
     
     # Extract the code only
-    python_from_excel = [i[0].replace('_x000D_', '\n') for i in python_from_excel[1:]]
+    python_from_excel = ['' if pd.isnull(i[0]) else i[0].replace('_x000D_', '\n') for i in python_from_excel[1:]]
     
     # Ensure the two match
     if python_from_file != python_from_excel:

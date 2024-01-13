@@ -47,6 +47,7 @@ In some cases (for example, debugging a file with a user), you'll want the the f
 ## Releasing a new version of the add-in
 
 When you are ready to release a new version of the add-in:
+  - Make sure the top of the Python script contains the correct version number
   - Run `prepare_for_prod` in the VBA immediate window to tidy up the workbook and prepare it for production (this will, for example, remove any extraneous sheets, and take the workbook out of debug mode). It will also require a password to update the version of the add-in on the server. Note that if `prepare_for_prod` has not been run, `dev` will be appended to the version name in the `README` file.
   - Commit your changes.
   - **WAIT** for the github action described [here](#contributing-to-the-add-in) to complete.

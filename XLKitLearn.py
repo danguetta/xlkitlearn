@@ -4,7 +4,7 @@
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '11.04'
+ADDIN_VERSION = '11.05'
 
 # Note that the seventh line in this file should contain the version number
 # in the format ADDIN_VERSION = 'XX'
@@ -989,15 +989,19 @@ class AddinInstance:
                 latest_version = latest_version.replace(',','.')
                 v_number = v_number.replace(',','.')
                 
+                # Split versions on dots
+                latest_version = latest_version.split('.')
+                v_number = v_number.split('.')
+
                 try:
-                    float_latest_version = float(latest_version)
-                    float_v_number = float(v_number)
+                    float_major_latest_version = float('.'.join(latest_version[0:2]))
+                    float_major_v_number = float('.'.join(v_number[0:2]))
                 except:
                     # If error, give the warning
-                    float_latest_version = 1
-                    float_v_number = 0
-            
-                if float_v_number < float_latest_version:
+                    float_major_latest_version = 1
+                    float_major_v_number = 0
+
+                if float_major_v_number < float_major_latest_version:
                     self._v_message += 'You are not using the latest version of XLKitLearn. Please download the '
                     self._v_message += f'latest version at xlkitlearn.com. The latest version is {latest_version}.'
                     

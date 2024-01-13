@@ -87,6 +87,11 @@ public const t_invalid_file_type = "xlkitlearn can only accept xls, xlsx, and cs
 public const t_invalid_range = "please enter a valid range."
 public const t_non_contiguous_range = "please select a contiguous range."
 public const t_book_unsaved = "please save this workbook before running the addin."
+public const t_onedrive = "it looks like you saved this file in a onedrive folder. unfortunately, onedrive is a truly abysmal piece of software, " & _
+                                "and it interferes with the way python " & _
+                                "communicates with excel workbooks. it therefore cannot be used with xlkitlearn." & vbcrlf & vbcrlf & _
+                                "while you are using this workbook, please move this file to a folder outside onedrive (google drive and dropbox are " & _
+                                "ok)."
 
 ' other
 public const t_no_files = "the folder in which this file is located does not contain any csv, xls, or xlsx files; perhaps " & _

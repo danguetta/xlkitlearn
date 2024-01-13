@@ -11,6 +11,30 @@ dim sheet_names as new collection
 dim sheet_settings as new collection
 dim running_batch_process as boolean
 
+' function to check whether we have a onedrive file
+' =================================================
+
+function check_onedrive() as string
+    if thisworkbook.path = "" then
+        check_onedrive = t_book_unsaved
+        exit function
+    end if
+    
+    on error goto onedriveerror
+    if dir(thisworkbook.fullname) = "" then
+        goto onedriveerror
+        exit function
+    end if
+    
+    on error goto 0
+    
+    exit function
+    
+onedriveerror:
+    check_onedrive = t_onedrive
+end function
+
+
 ' functions to enable and disable buttons
 ' =======================================
 
@@ -37,8 +61,8 @@ sub btn_edit_settings()
     ' if code isn't running, show settings
     if run_id() = "" and validate_settings_string("predictive", true) then
         ' ensure this workbook is saved
-        if thisworkbook.path = "" then
-            msgbox t_book_unsaved, vbexclamation
+        if check_onedrive() <> "" then
+            msgbox check_onedrive(), vbexclamation
             exit sub
         end if
         
@@ -50,8 +74,8 @@ sub btn_edit_text_settings()
     ' if code isn't running, show settings
     if run_id() = "" and validate_settings_string("text", true) then
         ' ensure this workbook is saved
-        if thisworkbook.path = "" then
-            msgbox t_book_unsaved, vbexclamation
+        if check_onedrive() <> "" then
+            msgbox check_onedrive(), vbexclamation
             exit sub
         end if
     
@@ -120,8 +144,8 @@ sub run_addin(f_name as string, this_status_cell as string)
     ' this function runs the add-in
     
     ' ensure this workbook is saved
-    if thisworkbook.path = "" then
-        msgbox t_book_unsaved, vbexclamation
+    if check_onedrive() <> "" then
+        msgbox check_onedrive(), vbexclamation
         exit sub
     end if
 

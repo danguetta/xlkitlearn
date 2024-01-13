@@ -14,7 +14,7 @@ function addin_version() as string
     ' returns it
     
     addin_version = split(range("'code_text'!a8").value, " ")(2)
-    addin_version = mid(addin_version, 2, len(addin_version) - 3)
+    addin_version = mid(addin_version, 2, len(addin_version) - 2)
 end function
 
 function run_id(optional create_new as boolean = false, optional extra_seed as long = 0) as string

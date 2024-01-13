@@ -184,7 +184,9 @@ if __name__ == '__main__':
     # Load the Python from the Excel
     python_from_excel = pd.read_excel(ADDIN_FILE,
                                       sheet_name = 'code_text',
-                                      header     = None).values
+                                      header     = None,
+                                      dtype      = str,
+                                      na_filter  = False).values
         
     # Check whether we have a prod version by looking at the first row
     # of the code
@@ -195,7 +197,7 @@ if __name__ == '__main__':
         prod_version = False
     
     # Extract the code only
-    python_from_excel = ['' if pd.isnull(i[0]) else i[0].replace('_x000D_', '\n') for i in python_from_excel[1:]]
+    python_from_excel = [i[0].replace('_x000D_', '\n') for i in python_from_excel[1:]]
     
     # Ensure the two match
     if python_from_file != python_from_excel:

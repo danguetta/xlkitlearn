@@ -179,7 +179,7 @@ if __name__ == '__main__':
     
     # Load the Python in the file
     with open(PYTHON_FILE) as f:
-        python_from_file = f.readlines()
+        python_from_file = [i[:-1] if i[-1] == '\n' else i for i in f.readlines()]
     
     # Load the Python from the Excel
     python_from_excel = pd.read_excel(ADDIN_FILE,

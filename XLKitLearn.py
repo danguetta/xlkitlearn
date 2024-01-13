@@ -2680,9 +2680,9 @@ class TreePrinter:
         This function will place a single node on the tree canvas, given the node
         text, its depth, and index. Nodes indexes are determined as follows
         
-                                 1
-                           1           2
-                         1   2       3   4
+        #                         1
+        #                   1           2
+        #                 1   2       3   4
                          
         If the node is not the top node, an arrow will be drawn connecting it to the
         levels above.

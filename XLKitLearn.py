@@ -4,7 +4,7 @@
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '11.06'
+ADDIN_VERSION = '12.01'
 
 # Note that the seventh line in this file should contain the version number
 # in the format ADDIN_VERSION = 'XX'
@@ -4517,7 +4517,7 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
                                      'VALUE':X.data}))
         else:
             if addin.wordtovec:
-                # Lord the Word2Vec vocab
+                # Load the Word2Vec vocab
                 w2v_file = os.path.dirname(sys.executable)
                 if w2v_file.endswith('bin'):
                     w2v_file = os.path.join(w2v_file, '..', 'data', 'w2v_small.bin')

@@ -32,9 +32,6 @@ jobs:
     - name: Install Python dependencies
       run: |
         python -m pip install -r requirements.txt
-    - name: Look at the genism version
-      run: |
-        python -m pip show gensim
     - name: Run the installer prep
       shell: bash
       run: |
@@ -42,6 +39,25 @@ jobs:
     - name: Create zipped up Python distro
       run: |
         python .github/workflows/zip_up_python.py .github/Output/python-distro-${{ matrix.architecture }}
+    - name: Clone the AzureSignTool repo (I haven't figure out how to sign macros using the AzureSignTool below)
+      shell: bash
+      run: git clone https://github.com/vcsjones/AzureSignTool.git
+    - name: Sign the xltm file
+      run: |
+        echo "Installing files needed to sign excel macros"
+        .github\macro_signing_files\vcredist_x86.exe /install /passive /norestart
+        Regsvr32 .github\macro_signing_files\msosip.dll
+        Regsvr32 .github\macro_signing_files\msosipx.dll
+        echo "Installation steps done"
+        cp XLKitLearn.xltm "AzureSignTool/src/AzureSignTool/XLKitLearn.xltm"
+        cd AzureSignTool/src/AzureSignTool
+        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
+        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
+        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
+    - name: copy the signed xltm file back
+      shell: bash
+      run: |
+        cp "AzureSignTool/src/AzureSignTool/XLKitLearn.xltm" "XLKitLearn.xltm"
     - name: Add the location of the install creator to the path
       shell: bash
       run: echo "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x64" >> $GITHUB_PATH
@@ -62,35 +78,6 @@ jobs:
         files: |
           .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe
           .github/Output/python-distro-${{ matrix.architecture }}.zip
-  push_non_windows_files:
-    env:
-      PROJECT: XLKitLearn
-      APP_ID: YaocNmA99ZWqRnwKgQKZKayRJojMjq
-      APP_PUBLISHER: Dynamic Analytics LLC
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
-      RELEASE_NAME: ${{ github.event.release.name }}
-    runs-on: windows-2022 
-    steps:
-    - name: Starting and printing github context for debugging
-      run: echo "$GITHUB_CONTEXT"
-    - name: Check out repo code
-      uses: actions/checkout@v3
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.8'
-        architecture: ${{ matrix.architecture }}
-    - name: Install Python dependencies
-      run: |
-        python -m pip install -r requirements.txt
-    - name: Run the installer prep
-      shell: bash
-      run: |
-        python .github/workflows/prepare_release.py
-    - name: Upload files to the GitHub release page
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
           XLKitLearn_installer.sh
           version
           XLKitLearn.xltm

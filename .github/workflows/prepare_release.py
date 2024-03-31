@@ -5,6 +5,7 @@
 # =====================
 
 import os
+import sys
 
 # ======================
 # =  Define constants  =
@@ -102,12 +103,14 @@ if __name__ == '__main__':
     import unicodedata
 
     # Get the model
-    import logging
-    original_logging_level = logging.getLogger().getEffectiveLevel()
-    logging.getLogger().setLevel(logging.WARNING)
-    w2v = downloader.load('word2vec-google-news-300')
-    logging.getLogger().setLevel(original_logging_level)
+    original_stdout = sys.stdout
+    sys.stdout = open(os.devnull, 'w')
 
+    w2v = downloader.load('word2vec-google-news-300')
+
+    sys.stdout.close()
+    sys.stdout = original_stdout
+    
     # Convert it to a Pandas DataFrame
     v_len = len(w2v.index_to_key)
     df = pd.DataFrame({'w_id' : list(range(v_len))                                  ,
@@ -132,7 +135,7 @@ if __name__ == '__main__':
     for i, row in df_ag_small.iterrows():
         out[row.word_lower] = sum([w2v[ind]*freq for ind, freq in zip(row.ids, row.freqs)])/sum(row.freqs)
 
-    pickle.dump(out, os.path.join(env['pythonLocation'], 'data', 'w2v_small.bin'), 'w')
+    pickle.dump(out, open(os.path.join(env['pythonLocation'], 'data', 'w2v_small.bin'), 'w'))
 
     # -----------------------
     # -  Prep Mac installer  -
@@ -142,7 +145,7 @@ if __name__ == '__main__':
     with open('version', 'w') as f:
         f.write(version)
     
-    pickle.dump(out, 'w2v_small.bin')
+    pickle.dump(out, open('w2v_small.bin', 'w'))
 
     # Load the template installer
     with open(MAC_TEMPLATE, 'r') as f:

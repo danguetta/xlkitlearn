@@ -102,7 +102,11 @@ if __name__ == '__main__':
     import unicodedata
 
     # Get the model
+    import logging
+    original_logging_level = logging.getLogger().getEffectiveLevel()
+    logging.getLogger().setLevel(logging.WARNING)
     w2v = downloader.load('word2vec-google-news-300')
+    logging.getLogger().setLevel(original_logging_level)
 
     # Convert it to a Pandas DataFrame
     v_len = len(w2v.index_to_key)

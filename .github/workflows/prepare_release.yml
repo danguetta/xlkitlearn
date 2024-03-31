@@ -18,7 +18,7 @@ jobs:
     runs-on: windows-2022
     strategy:
       matrix:
-        architecture: ['x86', 'x64'] 
+        architecture: ['x64'] 
     steps:
     - name: Starting and printing github context for debugging
       run: echo "$GITHUB_CONTEXT"
@@ -80,6 +80,9 @@ jobs:
       with:
         python-version: '3.8'
         architecture: ${{ matrix.architecture }}
+    - name: Install Python dependencies
+      run: |
+        python -m pip install -r requirements.txt
     - name: Run the installer prep
       shell: bash
       run: |

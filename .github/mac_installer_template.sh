@@ -39,7 +39,7 @@ EOF
     printf "${YELLOW}Compiling packages${NC}\n"
     "$INSTALL_DIR"/bin/python -c "python_command_placeholder"
     printf "${YELLOW}Downloading Word2Vec info${NC}\n"
-    curl -L -o "$INSTALL_DIR"/data/iris.csv https://github.com/danguetta/xlkitlearn/releases/latest/download/w2v_small.bin
+    curl -L -o "$INSTALL_DIR"/data/w2v_small.bin https://github.com/danguetta/xlkitlearn/releases/latest/download/w2v_small.bin
     printf "${YELLOW}Downloading add-in Excel${NC}\n"
     curl -L -o ~/Desktop/XLKitLearn.xltm "https://github.com/danguetta/XLKitLearn/releases/latest/download/XLKitLearn.xltm"
     printf "${GREEN}Successfully installed XLKitLearn!${NC}\n"

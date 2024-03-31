@@ -105,7 +105,7 @@ public const models = "{'linear/logistic regression'|'lasso penalty'`'k-nearest 
 
 ' blank settings
 public const blank_settings = "{'model'|'linear/logistic regression'`'formula'|''`'param1'|''`'param2'|''`'param3'|''`'training_data'|''`'k'|''`'ts_data'|'false'`'evaluation_perc'|''`'evaluation_data'|''`'prediction_data'|''`'seed'|'123'`'output_model'|'true'`'output_evaluation_details'|'true'`'output_code'|'true'}"
-public const blank_text_settings = "{'source_data'|''`'max_df'|''`'min_df'|''`'max_features'|'500'`'stop_words'|'true'`'tf_idf'|'false'`'lda_topics'|''`'seed'|'123'`'eval_perc'|'0'`'bigrams'|'false'`'stem'|'false'`'output_code'|'true'`'sparse_output'|'false'`'max_lda_iter'|''}"
+public const blank_text_settings = "{'source_data'|''`'max_df'|''`'min_df'|''`'max_features'|'500'`'stop_words'|'true'`'tf_idf'|'false'`'wordtovec'|'false'`'lda_topics'|''`'seed'|'123'`'eval_perc'|'0'`'bigrams'|'false'`'stem'|'false'`'output_code'|'true'`'sparse_output'|'false'`'max_lda_iter'|''}"
 
 ' sample settings
 public const sample_settings = "{'model'|'random forest'`'formula'|'median_property_value ~ crime_per_capita + prop_zoned_over_25k + prop_non_retail_acres + bounds_river + nox_concentration + av_rooms_per_dwelling + prop_owner_occupied_pre_1940 + dist_to_employment_ctr + highway_accessibility + tax_rate + pupil_teacher_ratio'`'param1'|'3 & 4 & 5 & 6'`'param2'|'25'`'param3'|''`'training_data'|'[xlkitlearn.xlsm]boston_housing!$a$1:$l$507'`'k'|'5'`'ts_data'|'false'`'evaluation_perc'|''`'evaluation_data'|''`'prediction_data'|''`'seed'|'123'`'output_model'|'true'`'output_evaluation_details'|'true'`'output_code'|'true'}"

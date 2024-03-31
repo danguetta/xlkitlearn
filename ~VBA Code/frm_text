@@ -8,6 +8,11 @@ private sub chk_sparse_output_click()
     end if
 end sub
 
+
+private sub chk_wordtovec_click()
+    msgbox chk_wordtovec.value
+end sub
+
 private sub cmd_save_click()
     ' only activate workbook if necessary; on a mac, it can sometimes
     ' cause the sheet to change
@@ -26,6 +31,7 @@ private sub cmd_save_click()
     dict_utils cell_current_text_settings, "tf_idf", chk_tf_idf.value
     dict_utils cell_current_text_settings, "bigrams", chk_bigrams.value
     dict_utils cell_current_text_settings, "stem", chk_stem.value
+    dict_utils cell_current_text_settings, "wordtovec", chk_wordtovec.value
     
     dict_utils cell_current_text_settings, "lda_topics", txt_lda_topics.text
     dict_utils cell_current_text_settings, "eval_perc", txt_eval_perc.text
@@ -53,7 +59,6 @@ private sub cmd_save_mouseup(byval button as integer, byval shift as integer, by
         end if
     end if
 end sub
-
 
 private sub img_file_mouseup(byval button as integer, byval shift as integer, byval x as single, byval y as single)
     file_selection_source = "text"
@@ -139,6 +144,7 @@ private sub userform_initialize()
     chk_tf_idf.value = dict_utils(cell_current_text_settings, "tf_idf")
     chk_bigrams.value = dict_utils(cell_current_text_settings, "bigrams")
     chk_stem.value = dict_utils(cell_current_text_settings, "stem")
+    chk_wordtovec.value = dict_utils(cell_current_text_settings, "wordtovec")
     
     txt_lda_topics.text = dict_utils(cell_current_text_settings, "lda_topics")
     if txt_lda_topics.text <> "" then

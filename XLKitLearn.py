@@ -1,10 +1,10 @@
 ##################################
 #  XLKitLearn                    #
-#  (C) Daniel Guetta, 2022       #
+#  (C) Daniel Guetta, 2024       #
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '11.05'
+ADDIN_VERSION = '11.06'
 
 # Note that the seventh line in this file should contain the version number
 # in the format ADDIN_VERSION = 'XX'
@@ -301,6 +301,7 @@ TEXT_CONFIG = D( settings_cell = 'D14',
                                       eval_perc = D(english_key='Evaluation percentage', default=0, kind='i'),
                                         bigrams = D(english_key='Include bigrams?', kind='b'),
                                            stem = D(english_key='Stem words?', kind='b'),
+                                      wordtovec = D(english_key='Use Word2Vec?', kind='b'),
                                     output_code = D(english_key='Output code?', kind='b'),
                                   sparse_output = D(english_key='Sparse output?', kind='b'),
                                    max_lda_iter = D(english_key='LDA iterations', default=10, kind='i') ) )
@@ -1150,7 +1151,7 @@ class TextAddinInstance(AddinInstance):
                                                 'than 0 and less than 1.')
         
         if (self._settings.min_df is not None) and (self._settings.max_df is not None):
-            if self._settings.max_df <= self._settings.min_df:
+            if self._settings.max_df < self._settings.min_df:
                 self._out_err.add_error('Error parsing the upper and lower limiting frequencies. The upper level '
                                             'needs to be higher than the lower leve.')
         
@@ -1173,6 +1174,10 @@ class TextAddinInstance(AddinInstance):
                 
             self._run_lda = True
         
+        if self._settings.wordtovec:
+            if self.tf_idf or self.bigrams or self.stem or self.run_lda or self.sparse_output:
+                self._out_err.add_error('XLKitLearn cannot use Word2Vec in conjunction with TF-IDF, bigrams, LDA, or sparse output.')
+                
         self._out_err.finalize()
     
     @property
@@ -1234,6 +1239,10 @@ class TextAddinInstance(AddinInstance):
     @property
     def max_lda_iter(self):
         return self._settings.max_lda_iter
+
+    @property
+    def wordtovec(self):
+        return self._settings.wordtovec
 
 class PredictiveAddinInstance(AddinInstance):
     
@@ -2563,10 +2572,10 @@ class TreePrinter:
         # Add the remaining nodes
         for node_id in range(1, self._node_count):
             out.append('-    '*self._node_depth[node_id]
-                          + self._node_path[node_id] + ' '
-                          + self._threshold[self._node_parent[node_id]]
+                          + str(self._node_path[node_id]) + ' '
+                          + str(self._threshold[self._node_parent[node_id]])
                           + ' : Split on '
-                          + self._node_feature[node_id])
+                          + str(self._node_feature[node_id]))
                           
         # Find the width of each section
         S1_width = max([len(i) for i in out]) + 2
@@ -3283,6 +3292,24 @@ class TextCode:
     def _vectorize(self):
         o = ''
         
+        if self._addin.wordtovec:
+            o +=                   '###################'                                                               +'\n'
+            o +=                   '#    IMPORTANT    #'                                                               +'\n' 
+            o +=                   '###################'                                                               +'\n'
+            o +=                   ''                                                                                  +'\n'
+            o +=                   '# You have configured XLKitLearn to use Word2Vec. The full Word2Vec model is far'  +'\n'
+            o +=                   '# too large to include in XLKitLearn, and for that reason, the add-in uses a'      +'\n'
+            o +=                   '# smaller version of the model. Because this is not a "standard" implementation of'+'\n'
+            o +=                   '# Word2Vec, it is not possible to reproduce exactly what the add-in does in'       +'\n'
+            o +=                   '# "vanilla" Python, so we do *not* include Word2Vec code here. ' + "If you're"     +'\n'
+            o +=                   '#interested in using Word2Vec in your code, check out the gensim package.'         +'\n'
+            o +=                   ''                                                                                  +'\n'
+            o +=                   '###################'                                                               +'\n'
+            o +=                   '#    IMPORTANT    #'                                                               +'\n' 
+            o +=                   '###################'                                                               +'\n'
+            o +=                   ''                                                                                  +'\n'
+            o +=                   ''                                                                                  +'\n'
+
         o +=                       '# ========================'                                                        +'\n'
         o +=                       '#   Vectorize the Text   ='                                                        +'\n'
         o +=                       '# ========================'                                                        +'\n'
@@ -4402,10 +4429,11 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
     
     vectorizer.set_params(strip_accents = "ascii")
     
-    if addin.stop_words is not None:
+    if addin.stop_words:
         vectorizer.set_params( stop_words = "english" )
     
-    vectorizer.set_params( max_features = addin.max_features )
+    if not addin.wordtovec:
+        vectorizer.set_params( max_features = addin.max_features )
     
     if addin.max_df != 1:
         vectorizer.set_params( max_df = addin.max_df )
@@ -4416,7 +4444,7 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
     # Vectorize the data
     if addin.eval_perc == 0:
         X = vectorizer.fit_transform(raw_data)
-        
+
     else:
         train, evaluation = sk_ms.train_test_split( list(range(len(raw_data))),
                                                  train_size = 1 - addin.eval_perc,
@@ -4485,10 +4513,45 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
     if not addin.run_lda:
         if addin.sparse_output:
             out_df = pd.DataFrame(D({'ROW':X.nonzero()[0]+1,
-                                        'COLUMN':np.array(vocab)[X.nonzero()[1]],
-                                        'VALUE':X.data}))
+                                     'COLUMN':np.array(vocab)[X.nonzero()[1]],
+                                     'VALUE':X.data}))
         else:
-            out_df = pd.DataFrame(X.toarray(), columns = vocab)
+            if addin.wordtovec:
+                # Lord the Word2Vec vocab
+                w2v_file = os.path.dirname(sys.executable)
+                if w2v_file.endswith('bin'):
+                    w2v_file = os.path.join(w2v_file, '..', 'data', 'w2v_small.bin')
+                else:
+                    w2v_file = os.path.join(w2v_file, 'data', 'w2v_small.bin')
+                
+                import pickle
+                w2v = pickle.load(open(w2v_file, 'rb'))
+                
+                # De-sparsify X
+                X = X.toarray()
+
+                # Create the vocab and unknown words matrix
+                vocab_matrix = []
+                unknown_words = np.zeros(len(vocab))
+                for w_pos, w in enumerate(vocab):
+                    try:
+                        vocab_matrix.append(w2v[w])
+                    except:
+                        vocab_matrix.append(np.zeros(300))
+                        unknown_words[w_pos] = 1
+
+                vocab_matrix = np.vstack(vocab_matrix)
+                
+                # Create the final output
+                out_df = np.hstack([(X @ np.ones(len(vocab)))[:, np.newaxis],
+                                    (X @ unknown_words)[:, np.newaxis],
+                                    (X @ vocab_matrix) / ((X @ (1 - unknown_words))[:, np.newaxis]) ])
+
+                out_df = pd.DataFrame(out_df, columns = ['n_words', 'n_unknown'] + [f'w2v_{i}' for i in range(300)])
+
+            else:
+                out_df = pd.DataFrame(X.toarray(), columns = vocab)
+
             out_df = out_df.reset_index()
             out_df = out_df.rename(columns = {out_df.columns[0] : "Doc Number"})
             

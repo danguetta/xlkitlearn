@@ -57,11 +57,7 @@ if __name__ == '__main__':
     # Ensure the tag and release name are equal to the version
     assert version == env['RELEASE_TAG'], 'Release tag is not equal to the #version'
     assert version == env['RELEASE_NAME'], 'Release name is to equal to the version'
-    
-    # Create a file with the version number for the release
-    with open('version', 'w') as f:
-        f.write(version)
-    
+        
     # ---------------------------------------
     # -   Create a requirement run string   -
     # ---------------------------------------
@@ -93,11 +89,57 @@ if __name__ == '__main__':
     with open(ISS_FILE, 'w') as f:
         f.write(iss_file.replace('version_placeholder', version)
                         .replace('python_command_placeholder', req_run_string))
+
+    # -------------------------------------
+    # -   Create the mini Word2Vec file   -
+    # -------------------------------------
         
+    # Create a reduced version of Word2Vec for XLKit Learn
+
+    import gensim.downloader as downloader
+    import pandas as pd
+    import pickle
+    import unicodedata
+
+    # Get the model
+    w2v = downloader.load('word2vec-google-news-300')
+
+    # Convert it to a Pandas DataFrame
+    v_len = len(w2v.index_to_key)
+    df = pd.DataFrame({'w_id' : list(range(v_len))                                  ,
+                    'word' : list(w2v.index_to_key)                              ,
+                    'freq' : [w2v.get_vecattr(i, 'count') for i in range(v_len)]  })
+
+    # Create a lower case, non-accented verison of the word
+    df['word_lower'] = df.word.str.lower().apply(lambda x : ''.join([i for i in unicodedata.normalize('NFD', x) if not unicodedata.combining(i)]))
+    df_ag = df.groupby('word_lower').agg(ids     = ('w_id', list),
+                                        freqs   = ('freq', list),
+                                        av_freq = ('freq', 'max')).reset_index()
+    df_ag = df_ag.sort_values('av_freq', ascending=False)
+
+    # Only keep words
+    df_ag = df_ag[df_ag.word_lower.apply(lambda x : all(i in 'abcdefghijklmnopqrstuvwxyz0123456789' for i in x))]
+
+    # Only keep the top entries
+    df_ag_small = df_ag.head(100000)
+
+    # Output
+    out = {}
+    for i, row in df_ag_small.iterrows():
+        out[row.word_lower] = sum([w2v[ind]*freq for ind, freq in zip(row.ids, row.freqs)])/sum(row.freqs)
+
+    pickle.dump(out, os.path.join(env['pythonLocation'], 'data', 'w2v_small.bin'), 'w')
+
     # -----------------------
     # -  Prep Mac installer  -
     # ------------------------
     
+    # Create a file with the version number for the release
+    with open('version', 'w') as f:
+        f.write(version)
+    
+    pickle.dump(out, 'w2v_small.bin')
+
     # Load the template installer
     with open(MAC_TEMPLATE, 'r') as f:
         mac_installer = f.read()

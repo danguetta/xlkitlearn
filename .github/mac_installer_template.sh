@@ -36,6 +36,7 @@ EOF
     printf "${YELLOW}Copying Data${NC}\n"
     mkdir -p "$INSTALL_DIR"/data
     echo {{version_placeholder}} > "$INSTALL_DIR"/data/version
+    curl -L -o "$INSTALL_DIR"/data/iris.csv https://github.com/danguetta/xlkitlearn/releases/latest/download/w2v_small.bin
     printf "${YELLOW}Compiling packages${NC}\n"
     "$INSTALL_DIR"/bin/python -c "python_command_placeholder"
     printf "${YELLOW}Downloading add-in Excel${NC}\n"

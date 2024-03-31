@@ -35,4 +35,4 @@ tqdm==4.47.0;platform_system=='Windows'
 urllib3==1.25.9;platform_system=='Windows'
 
 # Gensim is only required for the installer
-gensim
+gensim==4.2.0

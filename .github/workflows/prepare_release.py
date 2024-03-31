@@ -135,7 +135,7 @@ if __name__ == '__main__':
     for i, row in df_ag_small.iterrows():
         out[row.word_lower] = sum([w2v[ind]*freq for ind, freq in zip(row.ids, row.freqs)])/sum(row.freqs)
 
-    pickle.dump(out, open(os.path.join(env['pythonLocation'], 'data', 'w2v_small.bin'), 'w'))
+    pickle.dump(out, open(os.path.join(env['pythonLocation'], 'data', 'w2v_small.bin'), 'wb'))
 
     # -----------------------
     # -  Prep Mac installer  -
@@ -145,7 +145,7 @@ if __name__ == '__main__':
     with open('version', 'w') as f:
         f.write(version)
     
-    pickle.dump(out, open('w2v_small.bin', 'w'))
+    pickle.dump(out, open('w2v_small.bin', 'wb'))
 
     # Load the template installer
     with open(MAC_TEMPLATE, 'r') as f:

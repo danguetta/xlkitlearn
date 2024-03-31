@@ -8,9 +8,27 @@ private sub chk_sparse_output_click()
     end if
 end sub
 
-
 private sub chk_wordtovec_click()
-    msgbox chk_wordtovec.value
+    if chk_wordtovec.value = true then
+        chk_tf_idf.value = false
+        chk_tf_idf.enabled = false
+        
+        chk_bigrams.value = false
+        chk_bigrams.enabled = false
+        
+        chk_stem.value = false
+        chk_stem.enabled = false
+        
+        opt_features.value = true
+        opt_features_click
+        
+        opt_lda.enabled = false
+    else:
+        chk_tf_idf.enabled = true
+        chk_bigrams.enabled = true
+        chk_stem.enabled = true
+        opt_lda.enabled = true
+    end if
 end sub
 
 private sub cmd_save_click()
@@ -144,7 +162,9 @@ private sub userform_initialize()
     chk_tf_idf.value = dict_utils(cell_current_text_settings, "tf_idf")
     chk_bigrams.value = dict_utils(cell_current_text_settings, "bigrams")
     chk_stem.value = dict_utils(cell_current_text_settings, "stem")
+    
     chk_wordtovec.value = dict_utils(cell_current_text_settings, "wordtovec")
+    chk_wordtovec_click
     
     txt_lda_topics.text = dict_utils(cell_current_text_settings, "lda_topics")
     if txt_lda_topics.text <> "" then

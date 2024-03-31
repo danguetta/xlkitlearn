@@ -39,9 +39,9 @@ jobs:
     - name: Create zipped up Python distro
       run: |
         python .github/workflows/zip_up_python.py .github/Output/python-distro-${{ matrix.architecture }}
-    - name: Clone the AzureSignTool repo (I haven't figure out how to sign macros using the AzureSignTool below)
+    - name: Instal the sign tool
       shell: bash
-      run: git clone https://github.com/vcsjones/AzureSignTool.git
+      run: dotnet tool install --global AzureSignTool 
     - name: Sign the xltm file
       run: |
         echo "Installing files needed to sign excel macros"
@@ -49,15 +49,9 @@ jobs:
         Regsvr32 .github\macro_signing_files\msosip.dll
         Regsvr32 .github\macro_signing_files\msosipx.dll
         echo "Installation steps done"
-        cp XLKitLearn.xltm "AzureSignTool/src/AzureSignTool/XLKitLearn.xltm"
-        cd AzureSignTool/src/AzureSignTool
-        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
-        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
-        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
-    - name: copy the signed xltm file back
-      shell: bash
-      run: |
-        cp "AzureSignTool/src/AzureSignTool/XLKitLearn.xltm" "XLKitLearn.xltm"
+        AzureSignTool sign -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc ${{ secrets.AZURE_CERT_NAME }} -tr http://timestamp.digicert.com -v XLKitLearn.xltm
+        AzureSignTool sign -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc ${{ secrets.AZURE_CERT_NAME }} -tr http://timestamp.digicert.com -v XLKitLearn.xltm
+        AzureSignTool sign -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc ${{ secrets.AZURE_CERT_NAME }} -tr http://timestamp.digicert.com -v XLKitLearn.xltm
     - name: Add the location of the install creator to the path
       shell: bash
       run: echo "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x64" >> $GITHUB_PATH
@@ -66,9 +60,6 @@ jobs:
     - name: Rename the installer to include bitness
       shell: bash
       run: mv .github/Output/${{ env.PROJECT }}.exe .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe
-    - name: Instal the sign tool
-      shell: bash
-      run: dotnet tool install --global AzureSignTool 
     - name: Sign the installer
       shell: bash
       run: AzureSignTool sign -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc ${{ secrets.AZURE_CERT_NAME }} -tr http://timestamp.digicert.com -v .github/Output/${{ env.PROJECT }}-${{ matrix.architecture }}.exe

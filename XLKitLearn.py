@@ -4,7 +4,7 @@
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '12.01'
+ADDIN_VERSION = '12.02'
 
 # Note that the seventh line in this file should contain the version number
 # in the format ADDIN_VERSION = 'XX'

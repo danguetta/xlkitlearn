@@ -197,6 +197,7 @@ public function get_file_headers(f_string as string, byref these_vars as collect
                 end if
             #end if
             
+            data_line = split(data_line, chr(10))(0)
             
             data_line = split(data_line, ",")
             

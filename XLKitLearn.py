@@ -4,7 +4,7 @@
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '12.02'
+ADDIN_VERSION = '12.03'
 
 # Note that the seventh line in this file should contain the version number
 # in the format ADDIN_VERSION = 'XX'
@@ -4547,7 +4547,7 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
                                     (X @ unknown_words)[:, np.newaxis],
                                     (X @ vocab_matrix) / ((X @ (1 - unknown_words))[:, np.newaxis]) ])
 
-                out_df = pd.DataFrame(out_df, columns = ['n_words', 'n_unknown'] + [f'w2v_{i}' for i in range(300)])
+                out_df = pd.DataFrame(out_df, columns = ['n_words', 'n_unknown'] + [f'w2v_{i}' for i in range(300)]).fillna(0)
 
             else:
                 out_df = pd.DataFrame(X.toarray(), columns = vocab)

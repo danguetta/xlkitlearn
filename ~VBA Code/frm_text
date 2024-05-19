@@ -10,6 +10,14 @@ end sub
 
 private sub chk_wordtovec_click()
     if chk_wordtovec.value = true then
+        txt_min_df.enabled = false
+        txt_max_df.enabled = false
+        
+        max_features.enabled = false
+    
+        chk_stop_words.value = false
+        chk_stop_words.enabled = false
+        
         chk_tf_idf.value = false
         chk_tf_idf.enabled = false
         
@@ -22,11 +30,26 @@ private sub chk_wordtovec_click()
         opt_features.value = true
         opt_features_click
         
+        txt_eval_perc.enabled = false
+        
+        chk_sparse_output.enabled = false
+        chk_sparse_output.value = false
+        
         opt_lda.enabled = false
     else:
+        txt_min_df.enabled = true
+        txt_max_df.enabled = true
+        
+        max_features.enabled = true
+        
+        chk_stop_words.enabled = true
+        chk_stop_words.value = true
+        
         chk_tf_idf.enabled = true
         chk_bigrams.enabled = true
         chk_stem.enabled = true
+        txt_eval_perc.enabled = true
+        chk_sparse_output.enabled = true
         opt_lda.enabled = true
     end if
 end sub
@@ -89,9 +112,11 @@ private sub max_features_change()
 end sub
 
 private sub opt_features_click()
-    txt_eval_perc.enabled = true
-    chk_sparse_output.enabled = true
-    max_features.max = 1000
+    if chk_wordtovec.value = false then
+        txt_eval_perc.enabled = true
+        chk_sparse_output.enabled = true
+        max_features.max = 1000
+    end if
     
     with txt_lda_topics
         .enabled = false

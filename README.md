@@ -1,5 +1,5 @@
 # XLKitLearn
-## Version: 12.03
+## Version: 13.01
 <!-- DO ***NOT*** EDIT ANYTHING ABOVE THIS LINE, INCLUDING THIS COMMENT -->
 
 This repo contains the latest version of [XLKitLearn](https://www.xlkitlearn.com). Please see the website for authorship, license, installation, and usage information - this repo provides information for those interested in seeing the add-in's code and/or contributing to it.

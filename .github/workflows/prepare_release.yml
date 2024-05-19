@@ -45,7 +45,7 @@ jobs:
     - name: Sign the xltm file
       run: |
         echo "Installing files needed to sign excel macros"
-        .github\macro_signing_files\vcredist_x86.exe /install /passive /norestart
+        .github\macro_signing_files\vcredist_x64.exe /install /passive /norestart
         Regsvr32 .github\macro_signing_files\msosip.dll
         Regsvr32 .github\macro_signing_files\msosipx.dll
         echo "Installation steps done"

@@ -4,7 +4,7 @@
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '12.03'
+ADDIN_VERSION = '13.01'
 
 # Note that the seventh line in this file should contain the version number
 # in the format ADDIN_VERSION = 'XX'
@@ -1175,8 +1175,8 @@ class TextAddinInstance(AddinInstance):
             self._run_lda = True
         
         if self._settings.wordtovec:
-            if self.tf_idf or self.bigrams or self.stem or self.run_lda or self.sparse_output:
-                self._out_err.add_error('XLKitLearn cannot use Word2Vec in conjunction with TF-IDF, bigrams, LDA, or sparse output.')
+            if self.stop_words or self.tf_idf or self.bigrams or self.stem or self.run_lda or self.sparse_output:
+                self._out_err.add_error('XLKitLearn cannot use Word2Vec in conjunction with stopwords, TF-IDF, bigrams, LDA, or sparse output.')
                 
         self._out_err.finalize()
     
@@ -3293,111 +3293,122 @@ class TextCode:
         o = ''
         
         if self._addin.wordtovec:
-            o +=                   '###################'                                                               +'\n'
-            o +=                   '#    IMPORTANT    #'                                                               +'\n' 
-            o +=                   '###################'                                                               +'\n'
-            o +=                   ''                                                                                  +'\n'
-            o +=                   '# You have configured XLKitLearn to use Word2Vec. The full Word2Vec model is far'  +'\n'
-            o +=                   '# too large to include in XLKitLearn, and for that reason, the add-in uses a'      +'\n'
-            o +=                   '# smaller version of the model. Because this is not a "standard" implementation of'+'\n'
-            o +=                   '# Word2Vec, it is not possible to reproduce exactly what the add-in does in'       +'\n'
-            o +=                   '# "vanilla" Python, so we do *not* include Word2Vec code here. ' + "If you're"     +'\n'
-            o +=                   '#interested in using Word2Vec in your code, check out the gensim package.'         +'\n'
-            o +=                   ''                                                                                  +'\n'
-            o +=                   '###################'                                                               +'\n'
-            o +=                   '#    IMPORTANT    #'                                                               +'\n' 
-            o +=                   '###################'                                                               +'\n'
-            o +=                   ''                                                                                  +'\n'
-            o +=                   ''                                                                                  +'\n'
-
-        o +=                       '# ========================'                                                        +'\n'
-        o +=                       '#   Vectorize the Text   ='                                                        +'\n'
-        o +=                       '# ========================'                                                        +'\n'
-        o +=                       ''                                                                                  +'\n'
-        o +=                       '# Create a function to tokenize text - this function will take a piece of text'
-        if self._addin.stem:
-            o +=                                                                                                 ','   +'\n'
-            o +=                   '# split it into words, and stem each word.'                                        +'\n'
-            o +=                   ''                                                                                  +'\n'
-            o +=                   'stemmer = nltk.SnowballStemmer("english")'                                         +'\n'
-            o +=                   'tokenize = lambda x : [stemmer.stem() for i in x.split()]'                         +'\n'
-            self._import_statements.append('import nltk')
-        else:
-            o +=                                                                                                 ' and'+'\n'
-            o +=                   '# split it into words.'                                                            +'\n'
-            o +=                   ''                                                                                  +'\n'
-            o +=                   'tokenize = lambda x : [i for i in x.split()]'                                      +'\n'
-        o +=                       ''                                                                                  +'\n'
-        
-        vect_e = 'TF-IDF' if self._addin.tf_idf else 'count'
-        vect = 'TfidfVectorizer' if self._addin.tf_idf else 'CountVectorizer'
-        
-        o +=                       '# Initialize a {vect_e} vectorizer.'
-        if self._addin.bigrams:
-            o +=                                                      ' The argument n_gram_range = (1, 2) means we'   +'\n'
-            o +=                   '# want to select groups of 1 and 2 words. An argument of (1, 3) would pick groups' +'\n'
-            o +=                   '# of 1, 2, and 3 words. An argument of (2, 3) would pick groups of 2 and 3 words.' +'\n'
-        else:
-            o +=                                                    ''                                                 +'\n'
-        
-        vectorizer_settings = [f'max_features={self._addin.max_features}']
-        
-        if self._addin.bigrams:
-            vectorizer_settings.append('ngram_range=(1, 2)')
-        
-        if self._addin.stop_words:
-            vectorizer_settings.append('stop_words="english"')
-        
-        if self._addin.max_df != 1.0:
-            vectorizer_settings.append(f'max_df={self._addin.max_df}')
-        
-        if self._addin.min_df != 1:
-            vectorizer_settings.append(f'min_df={self._addin.min_df}')
-            
-        o +=                      f'vectorizer = sk_t.{vect}('
-        o +=                               ',\n                                   '.join(vectorizer_settings) + ')'    +'\n'
-        self._import_statements.append('from sklearn.feature_extraction import text as sk_t')
-        
-        if self._addin.eval_perc == 0:
-            o +=                   '# We just want to vectorize the whole dataset - no need to worry about future'     +'\n'
-            o +=                   '# test sets'                                                                       +'\n'
-            o +=                   'X = vectorizer.fit_transform(data)'                                                +'\n'
-            
-        else:
-            self._import_statements.append('import sklearn.model_selection as sk_ms')
-            self._import_statements.append('import scipy as sp')
-            
-            o +=                   '# We need to split our data into a training and test set before vectorizing. Begin'+'\n'
-            o +=                   '# by creating a list of document numbers (1 through number of documents) and'      +'\n'
-            o +=                   '# splitting *that* list using train_test_split.'                                   +'\n'
-            o +=                   ''                                                                                  +'\n'
-            o +=                   'doc_nums = list(range(len(data)))'                                                 +'\n'
-            o +=                   'train, evaluation = sk_ms.train_test_split( doc_nums,'                             +'\n'
-            o +=                  f'                                            train_size = 1 - {self._addin.eval_perc},'+'\n'
-            o +=                  f'                                            test_size = {self._addin.eval_perc},'+'\n'
-            if self._addin.seed is not None:
-                o +=              f'                                            random_state = {self._addin.seed},'    +'\n'
-            o +=                   '                                            shuffle = True)'                       +'\n'
+            o +=                   '# ============================'                                                        +'\n'
+            o +=                   '# =  Get OpenAI Embeddings   ='                                                        +'\n'
+            o +=                   '# ============================'                                                        +'\n'
+            o +=                   ''                                                                                      +'\n'
+            o +=                   'import tiktoken'                                                                       +'\n'
+            o +=                   'import openai'                                                                         +'\n'
+            o +=                   'import numpy as np'                                                                    +'\n'
+            o +=                   ''                                                                                      +'\n'
+            o +=                   'openai_key = "INSERT YOUR OPENAI KEY HERE"'                                            +'\n'
+            o +=                   ''                                                                                      +'\n'
+            o +=                   "# Count the number of tokens in each piece of text; OpenAI's text-embedding-3-small"   +'\n'
+            o +=                   '# (which we use here) uses the cl100k_base tokenizer, so use that here'                +'\n'
+            o +=                   'encoder = tiktoken.get_encoding("cl100k_base")'                                        +'\n'
+            o +=                   'raw_string_lengths = [len(encoder.encode(i)) for i in data]'                           +'\n'
+            o +=                   ''                                                                                      +'\n'
+            o +=                   '# Truncate each piece of text to 8192 token (the maximum number allowed by'            +'\n'
+            o +=                   '# text-embedding-3-small)'                                                             +'\n'
+            o +=                   'data = [encoder.decode(encoder.encode(i)[:8192]) for i in data]'                       +'\n'
+            o +=                   ''                                                                                      +'\n'
+            o +=                   '# Get the embeddings from OpenAI'                                                      +'\n'
+            o +=                   'client = openai.OpenAI(api_key=openai_key)'                                            +'\n'
+            o +=                   'X = client.embeddings.create(input = data, model = "text-embedding-3-small")'          +'\n'
+            o +=                   ''                                                                                      +'\n'
+            o +=                   '# Turn them into a numpy array'                                                        +'\n'
+            o +=                   'X = np.array([i.embedding for i in X.data])'                                           +'\n'
             o +=                   ''
-            o +=                   '# Fit the vectorizer on the training data'                                         +'\n'
-            o +=                   'X_train = vectorizer.fit_transform( [data[i] for i in train] )'                    +'\n'
-            o +=                   ''                                                                                  +'\n'
-            o +=                   '# Now, use that vectorizer on the test data'                                       +'\n'
-            o +=                   'X_evaluation = vectorizer.transform([data[i] for i in evaluation])'                +'\n'
-            o +=                   ''                                                                                  +'\n'
-            o +=                   '# We now have vectorized data, but we need to make sure we return it in the'       +'\n'
-            o +=                   '# *original* order that data was in, so that when we later do a train/test'        +'\n'
-            o +=                   '# split with the same seed, we get the same train/test sets'                       +'\n'
-            o +=                   'correct_order = list(enumerate(train + evaluation))'                               +'\n'
-            o +=                   'correct_order.sort(key = lambda i : i[1])'                                         +'\n'
-            o +=                   'correct_order = [i[0] for i in correct_order]'                                     +'\n'
-            o +=                   'X = sp.sparse.vstack([X_train, X_evaluation])[correct_order, ]'                    +'\n'
+
+        else:
+            o +=                       '# ========================='                                                       +'\n'
+            o +=                       '# =  Vectorize the Text   ='                                                       +'\n'
+            o +=                       '# ========================='                                                       +'\n'
+            o +=                       ''                                                                                  +'\n'
+            o +=                       '# Create a function to tokenize text - this function will take a piece of text'
+            if self._addin.stem:
+                o +=                                                                                                 ','   +'\n'
+                o +=                   '# split it into words, and stem each word.'                                        +'\n'
+                o +=                   ''                                                                                  +'\n'
+                o +=                   'stemmer = nltk.SnowballStemmer("english")'                                         +'\n'
+                o +=                   'tokenize = lambda x : [stemmer.stem() for i in x.split()]'                         +'\n'
+                self._import_statements.append('import nltk')
+            else:
+                o +=                                                                                                 ' and'+'\n'
+                o +=                   '# split it into words.'                                                            +'\n'
+                o +=                   ''                                                                                  +'\n'
+                o +=                   'tokenize = lambda x : [i for i in x.split()]'                                      +'\n'
+            o +=                       ''                                                                                  +'\n'
             
-        o +=                       ''                                                                                  +'\n'
-        o +=                       '# Keep track of the dictionary in the order of the columns in X'                   +'\n'
-        o +=                       'vocab = sorted(vectorizer.vocabulary_, key = lambda i : vectorizer.vocabulary_[i])'+'\n'
-        o +=                       ''                                                                                  +'\n'
-        
+            vect_e = 'TF-IDF' if self._addin.tf_idf else 'count'
+            vect = 'TfidfVectorizer' if self._addin.tf_idf else 'CountVectorizer'
+            
+            o +=                       '# Initialize a {vect_e} vectorizer.'
+            if self._addin.bigrams:
+                o +=                                                      ' The argument n_gram_range = (1, 2) means we'   +'\n'
+                o +=                   '# want to select groups of 1 and 2 words. An argument of (1, 3) would pick groups' +'\n'
+                o +=                   '# of 1, 2, and 3 words. An argument of (2, 3) would pick groups of 2 and 3 words.' +'\n'
+            else:
+                o +=                                                    ''                                                 +'\n'
+            
+            vectorizer_settings = [f'max_features={self._addin.max_features}']
+            
+            if self._addin.bigrams:
+                vectorizer_settings.append('ngram_range=(1, 2)')
+            
+            if self._addin.stop_words:
+                vectorizer_settings.append('stop_words="english"')
+            
+            if self._addin.max_df != 1.0:
+                vectorizer_settings.append(f'max_df={self._addin.max_df}')
+            
+            if self._addin.min_df != 1:
+                vectorizer_settings.append(f'min_df={self._addin.min_df}')
+                
+            o +=                      f'vectorizer = sk_t.{vect}('
+            o +=                               ',\n                                   '.join(vectorizer_settings) + ')'    +'\n'
+            self._import_statements.append('from sklearn.feature_extraction import text as sk_t')
+            
+            if self._addin.eval_perc == 0:
+                o +=                   '# We just want to vectorize the whole dataset - no need to worry about future'     +'\n'
+                o +=                   '# test sets'                                                                       +'\n'
+                o +=                   'X = vectorizer.fit_transform(data)'                                                +'\n'
+                
+            else:
+                self._import_statements.append('import sklearn.model_selection as sk_ms')
+                self._import_statements.append('import scipy as sp')
+                
+                o +=                   '# We need to split our data into a training and test set before vectorizing. Begin'+'\n'
+                o +=                   '# by creating a list of document numbers (1 through number of documents) and'      +'\n'
+                o +=                   '# splitting *that* list using train_test_split.'                                   +'\n'
+                o +=                   ''                                                                                  +'\n'
+                o +=                   'doc_nums = list(range(len(data)))'                                                 +'\n'
+                o +=                   'train, evaluation = sk_ms.train_test_split( doc_nums,'                             +'\n'
+                o +=                  f'                                            train_size = 1 - {self._addin.eval_perc},'+'\n'
+                o +=                  f'                                            test_size = {self._addin.eval_perc},'+'\n'
+                if self._addin.seed is not None:
+                    o +=              f'                                            random_state = {self._addin.seed},'    +'\n'
+                o +=                   '                                            shuffle = True)'                       +'\n'
+                o +=                   ''
+                o +=                   '# Fit the vectorizer on the training data'                                         +'\n'
+                o +=                   'X_train = vectorizer.fit_transform( [data[i] for i in train] )'                    +'\n'
+                o +=                   ''                                                                                  +'\n'
+                o +=                   '# Now, use that vectorizer on the test data'                                       +'\n'
+                o +=                   'X_evaluation = vectorizer.transform([data[i] for i in evaluation])'                +'\n'
+                o +=                   ''                                                                                  +'\n'
+                o +=                   '# We now have vectorized data, but we need to make sure we return it in the'       +'\n'
+                o +=                   '# *original* order that data was in, so that when we later do a train/test'        +'\n'
+                o +=                   '# split with the same seed, we get the same train/test sets'                       +'\n'
+                o +=                   'correct_order = list(enumerate(train + evaluation))'                               +'\n'
+                o +=                   'correct_order.sort(key = lambda i : i[1])'                                         +'\n'
+                o +=                   'correct_order = [i[0] for i in correct_order]'                                     +'\n'
+                o +=                   'X = sp.sparse.vstack([X_train, X_evaluation])[correct_order, ]'                    +'\n'
+                
+            o +=                       ''                                                                                  +'\n'
+            o +=                       '# Keep track of the dictionary in the order of the columns in X'                   +'\n'
+            o +=                       'vocab = sorted(vectorizer.vocabulary_, key = lambda i : vectorizer.vocabulary_[i])'+'\n'
+            o +=                       ''                                                                                  +'\n'
+            
         return o
         
     def _run_lda(self):
@@ -4379,8 +4390,11 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
         file_path += addin.source_data
         
         with open(file_path, 'r') as f:
-            raw_data = [i for i in f.read().split('\n') if i.strip() != '']
-            
+            raw_data = [i for i in f.read().split('\n')]
+        
+        if any([i.strip() == '' for i in raw_data]):
+            out_err.add_error('The file you provided contains empty lines. Please remove these and try again.', critical=True)
+
     except FileNotFoundError:
         error_message = ('The filename you provided does not exist, or could not be found in the '
                              'same directory as this Excel spreadsheet. Here is some info that could '
@@ -4406,6 +4420,24 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
     if len(raw_data) == 0:
         out_err.add_error('It looks like the file you provided contains no data. Please check and try again.')
     
+    # Load the OpenAI API key if needed
+    if addin.wordtovec:
+        try:
+            excel_path = os.path.abspath(os.path.join(excel_connector.wb.fullname,os.path.pardir))
+            file_path = excel_path
+            delim = '/' if '/' in file_path else '\\'
+            file_path = file_path + delim
+            file_path += 'openai_key.txt'
+
+            with open(file_path, 'r') as f:
+                openai_key = f.read().strip()
+
+        except FileNotFoundError:
+            out_err.add_error('You have asked me to produce OpenAI embeddings, but I did not find an "openai_key.txt" in the same directory as this Excel spreadsheet. Please create this file and place your OpenAI API key in it.')
+
+        except Exception as e:
+            out_err.add_error(f'Unknown error reading the OpenAI API key file. The specific error was\n\n{str(e)}')
+
     out_err.finalize()
     out.log_event('Read time')
     
@@ -4414,55 +4446,79 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
     addin.update_status('Converting data to a matrix representation')
     out_err.add_error_category('Vectorization')
     
-    if addin.stem:
-        stemmer = nltk.SnowballStemmer("english")
-        tokenize = lambda x : [stemmer.stem(i) for i in x.split()]
-    else:
-        tokenize = lambda x : [i for i in x.split()]
+    if addin.wordtovec:
+        import tiktoken
+        import openai
+
+        client = openai.OpenAI(api_key=openai_key)
+
+        encoder = tiktoken.get_encoding('cl100k_base')
+        raw_string_lengths = [len(encoder.encode(i)) for i in raw_data]
+        raw_data = [encoder.decode(encoder.encode(i)[:8192]) for i in raw_data]
+        trunc_string_lengths = [len(encoder.encode(i)) for i in raw_data]
         
-    ngram_range = (0, 2) if addin.bigrams else (0, 1)
-    
-    if addin.tf_idf:
-        vectorizer = f_e.TfidfVectorizer(tokenizer=tokenize, ngram_range = ngram_range)
-    else:
-        vectorizer = f_e.CountVectorizer(tokenizer=tokenize, ngram_range = ngram_range)
-    
-    vectorizer.set_params(strip_accents = "ascii")
-    
-    if addin.stop_words:
-        vectorizer.set_params( stop_words = "english" )
-    
-    if not addin.wordtovec:
-        vectorizer.set_params( max_features = addin.max_features )
-    
-    if addin.max_df != 1:
-        vectorizer.set_params( max_df = addin.max_df )
-    
-    if addin.min_df != 0:
-        vectorizer.set_params( min_df = addin.min_df )
-    
-    # Vectorize the data
-    if addin.eval_perc == 0:
-        X = vectorizer.fit_transform(raw_data)
+        try:
+            X = client.embeddings.create(input = raw_data, model = 'text-embedding-3-small')
+        except Exception as e:
+            out_err.add_error('An error occurred while trying to get OpenAI embeddings. The specific error was\n\n' + str(e))
+        
+        X = np.hstack([   np.array([[i] for i in raw_string_lengths]),
+                                    np.array([[i] for i in trunc_string_lengths]),
+                                    np.array([i.embedding for i in X.data])       ])
+        
+        vocab = ['# tokens', '# tokens (truncated)'] + [f'd_{i}' for i in range(X.shape[1] - 2)]
 
     else:
-        train, evaluation = sk_ms.train_test_split( list(range(len(raw_data))),
-                                                 train_size = 1 - addin.eval_perc,
-                                                 test_size = addin.eval_perc,
-                                                 shuffle = True,
-                                                 random_state = addin.seed )
-    
-        X_train = vectorizer.fit_transform( [ raw_data[i] for i in train ])
-        X_evaluation = vectorizer.transform( [ raw_data[i] for i in evaluation ] )
-    
-        correct_order = list(enumerate(train + evaluation))
-        correct_order.sort(key = lambda i : i[1])
-        correct_order = [i[0] for i in correct_order]
-    
-        X = sp.sparse.vstack([X_train, X_evaluation])[correct_order, ]
+
+        if addin.stem:
+            stemmer = nltk.SnowballStemmer("english")
+            tokenize = lambda x : [stemmer.stem(i) for i in x.split()]
+        else:
+            tokenize = lambda x : [i for i in x.split()]
+            
+        ngram_range = (0, 2) if addin.bigrams else (0, 1)
         
-    vocab = sorted( vectorizer.vocabulary_, key = lambda i : vectorizer.vocabulary_[i] )
-    
+        if addin.tf_idf:
+            vectorizer = f_e.TfidfVectorizer(tokenizer=tokenize, ngram_range = ngram_range)
+        else:
+            vectorizer = f_e.CountVectorizer(tokenizer=tokenize, ngram_range = ngram_range)
+        
+        vectorizer.set_params(strip_accents = "ascii")
+        
+        if addin.stop_words:
+            vectorizer.set_params( stop_words = "english" )
+        
+        if not addin.wordtovec:
+            vectorizer.set_params( max_features = addin.max_features )
+        
+        if addin.max_df != 1:
+            vectorizer.set_params( max_df = addin.max_df )
+        
+        if addin.min_df != 0:
+            vectorizer.set_params( min_df = addin.min_df )
+        
+        # Vectorize the data
+        if addin.eval_perc == 0:
+            X = vectorizer.fit_transform(raw_data)
+
+        else:
+            train, evaluation = sk_ms.train_test_split( list(range(len(raw_data))),
+                                                    train_size = 1 - addin.eval_perc,
+                                                    test_size = addin.eval_perc,
+                                                    shuffle = True,
+                                                    random_state = addin.seed )
+        
+            X_train = vectorizer.fit_transform( [ raw_data[i] for i in train ])
+            X_evaluation = vectorizer.transform( [ raw_data[i] for i in evaluation ] )
+        
+            correct_order = list(enumerate(train + evaluation))
+            correct_order.sort(key = lambda i : i[1])
+            correct_order = [i[0] for i in correct_order]
+        
+            X = sp.sparse.vstack([X_train, X_evaluation])[correct_order, ]
+            
+        vocab = sorted( vectorizer.vocabulary_, key = lambda i : vectorizer.vocabulary_[i] )
+        
     # Log the fact we've finished vectorizing data
     out_err.finalize()    
     out.log_event("Vectorization time")
@@ -4517,38 +4573,7 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
                                      'VALUE':X.data}))
         else:
             if addin.wordtovec:
-                # Load the Word2Vec vocab
-                w2v_file = os.path.dirname(sys.executable)
-                if w2v_file.endswith('bin'):
-                    w2v_file = os.path.join(w2v_file, '..', 'data', 'w2v_small.bin')
-                else:
-                    w2v_file = os.path.join(w2v_file, 'data', 'w2v_small.bin')
-                
-                import pickle
-                w2v = pickle.load(open(w2v_file, 'rb'))
-                
-                # De-sparsify X
-                X = X.toarray()
-
-                # Create the vocab and unknown words matrix
-                vocab_matrix = []
-                unknown_words = np.zeros(len(vocab))
-                for w_pos, w in enumerate(vocab):
-                    try:
-                        vocab_matrix.append(w2v[w])
-                    except:
-                        vocab_matrix.append(np.zeros(300))
-                        unknown_words[w_pos] = 1
-
-                vocab_matrix = np.vstack(vocab_matrix)
-                
-                # Create the final output
-                out_df = np.hstack([(X @ np.ones(len(vocab)))[:, np.newaxis],
-                                    (X @ unknown_words)[:, np.newaxis],
-                                    (X @ vocab_matrix) / ((X @ (1 - unknown_words))[:, np.newaxis]) ])
-
-                out_df = pd.DataFrame(out_df, columns = ['n_words', 'n_unknown'] + [f'w2v_{i}' for i in range(300)]).fillna(0)
-
+                out_df = pd.DataFrame(X, columns = vocab)
             else:
                 out_df = pd.DataFrame(X.toarray(), columns = vocab)
 

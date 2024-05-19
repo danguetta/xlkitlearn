@@ -39,25 +39,36 @@ jobs:
     - name: Create zipped up Python distro
       run: |
         python .github/workflows/zip_up_python.py .github/Output/python-distro-${{ matrix.architecture }}
-    - name: Clone the AzureSignTool repo (I haven't figured out how to sign macros using the AzureSignTool below, it fails with error 800B0003)
-      shell: bash
-      run: git clone https://github.com/vcsjones/AzureSignTool.git
-    - name: Sign the xltm file
-      run: |
-        echo "Installing files needed to sign excel macros"
-        .github\macro_signing_files\vcredist_x64.exe /install /passive /norestart
-        Regsvr32 .github\macro_signing_files\msosip.dll
-        Regsvr32 .github\macro_signing_files\msosipx.dll
-        echo "Installation steps done"
-        cp XLKitLearn.xltm "AzureSignTool/src/AzureSignTool/XLKitLearn.xltm"
-        cd AzureSignTool/src/AzureSignTool
-        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
-        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
-        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
-    - name: copy the signed xltm file back
-      shell: bash
-      run: |
-        cp "AzureSignTool/src/AzureSignTool/XLKitLearn.xltm" "XLKitLearn.xltm"
+# The below otuputs the following errors - need to investigate
+# Installation steps done
+# C:\Program Files\dotnet\sdk\8.0.205\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.Sdk.FrameworkReferenceResolution.targets(90,5): error NETSDK1203: Ahead-of-time compilation is not supported for the target runtime identifier 'win-x86'. [D:\a\xlkitlearn\xlkitlearn\AzureSignTool\src\AzureSignTool\AzureSignTool.csproj]
+# 
+# The build failed. Fix the build errors and run again.
+# C:\Program Files\dotnet\sdk\8.0.205\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.Sdk.FrameworkReferenceResolution.targets(90,5): error NETSDK1203: Ahead-of-time compilation is not supported for the target runtime identifier 'win-x86'. [D:\a\xlkitlearn\xlkitlearn\AzureSignTool\src\AzureSignTool\AzureSignTool.csproj]
+# 
+# The build failed. Fix the build errors and run again.
+# C:\Program Files\dotnet\sdk\8.0.205\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.Sdk.FrameworkReferenceResolution.targets(90,5): error NETSDK1203: Ahead-of-time compilation is not supported for the target runtime identifier 'win-x86'. [D:\a\xlkitlearn\xlkitlearn\AzureSignTool\src\AzureSignTool\AzureSignTool.csproj]
+# 
+# The build failed. Fix the build errors and run again.
+#    - name: Clone the AzureSignTool repo (I haven't figured out how to sign macros using the AzureSignTool below, it fails with error 800B0003)
+#      shell: bash
+#      run: git clone https://github.com/vcsjones/AzureSignTool.git
+#    - name: Sign the xltm file
+#      run: |
+#        echo "Installing files needed to sign excel macros"
+#        .github\macro_signing_files\vcredist_x64.exe /install /passive /norestart
+#        Regsvr32 .github\macro_signing_files\msosip.dll
+#        Regsvr32 .github\macro_signing_files\msosipx.dll
+#        echo "Installation steps done"
+#        cp XLKitLearn.xltm "AzureSignTool/src/AzureSignTool/XLKitLearn.xltm"
+#        cd AzureSignTool/src/AzureSignTool
+#        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
+#        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
+#        dotnet run sign "XLKitLearn.xltm" -kvu "${{ secrets.AZURE_KEY_VAULT_URI }}" -kvi "${{ secrets.AZURE_CLIENT_ID }}" -kvt "${{ secrets.AZURE_TENANT_ID }}" -kvs "${{ secrets.AZURE_CLIENT_SECRET }}" -kvc "${{ secrets.AZURE_CERT_NAME }}" -tr "http://timestamp.digicert.com" -r win-x86 --verbose
+#    - name: copy the signed xltm file back
+#      shell: bash
+#      run: |
+#        cp "AzureSignTool/src/AzureSignTool/XLKitLearn.xltm" "XLKitLearn.xltm"
     - name: Add the location of the install creator to the path
       shell: bash
       run: echo "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22000.0\x64" >> $GITHUB_PATH

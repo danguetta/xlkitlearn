@@ -4392,8 +4392,12 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
         with open(file_path, 'r') as f:
             raw_data = [i for i in f.read().split('\n')]
         
+        # If the file ends with empty strings, remove them
+        while len(raw_data) > 0 and raw_data[-1].strip() == '':
+            raw_data = raw_data[:-1]
+
         if any([i.strip() == '' for i in raw_data]):
-            out_err.add_error('The file you provided contains empty lines. Please remove these and try again.', critical=True)
+            out_err.add_error('The file you provided contains empty lines. Please remove these and try again.')
 
     except FileNotFoundError:
         error_message = ('The filename you provided does not exist, or could not be found in the '
@@ -4466,7 +4470,7 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
                                     np.array([[i] for i in trunc_string_lengths]),
                                     np.array([i.embedding for i in X.data])       ])
         
-        vocab = ['# tokens', '# tokens (truncated)'] + [f'd_{i}' for i in range(X.shape[1] - 2)]
+        vocab = ['# tokens', '# tokens (truncated)'] + [f'd_{i+1}' for i in range(X.shape[1] - 2)]
 
     else:
 
@@ -4579,6 +4583,7 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
 
             out_df = out_df.reset_index()
             out_df = out_df.rename(columns = {out_df.columns[0] : "Doc Number"})
+            out_df['Doc Number'] += 1
             
         out.add_header( "Text Features", 1 )
         out.add_table( out_df )

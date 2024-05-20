@@ -3276,7 +3276,7 @@ class TextCode:
         o +=                       '#   Load Data   ='                                                                 +'\n'
         o +=                       '# ==============='                                                                 +'\n'
         o +=                       ''                                                                                  +'\n'
-        o +=                       'with open(file_name) as f:'                                                        +'\n'
+        o +=                       'with open(file_name, encoding="utf-8") as f:'                                      +'\n'
         o +=                       '    # Read the entire file'                                                        +'\n'
         o +=                       '    data = f.read()'                                                               +'\n'
         o +=                       ''                                                                                  +'\n'
@@ -4389,7 +4389,7 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
         file_path = file_path + delim
         file_path += addin.source_data
         
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             raw_data = [i for i in f.read().split('\n')]
         
         # If the file ends with empty strings, remove them

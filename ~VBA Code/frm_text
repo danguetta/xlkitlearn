@@ -85,6 +85,14 @@ private sub cmd_save_click()
     
     dict_utils cell_current_text_settings, "sparse_output", chk_sparse_output.value
     
+    if chk_wordtovec.value = true then
+        msgbox "warning: you are asking xlkitlearn to get embeddings from openai - this costs real money; if your text " & _
+                    "file is very large, you may first want to check this works with a smaller chunk of the file first. " & _
+                    "see https://openai.com/api/pricing/ for information about the cost of running this embedding model - " & _
+                    "xlkitlearn uses the text-embedding-3-small embedding.", vbexclamation
+    end if
+    
+    
     unload me
 end sub
 

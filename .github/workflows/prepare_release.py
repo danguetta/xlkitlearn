@@ -97,10 +97,7 @@ if __name__ == '__main__':
     
     # Create a file with the version number for the release
     with open('version', 'w') as f:
-        # MANUALLY SETTING THIS TO 12.03 TO AVOID EXTRANEOUS WARNINGS; REMOVE AFTER SUMMER 2024 CLASS
-        # TODO
-        f.write('12.03')
-        #f.write(version)
+        f.write(version)
 
     # Load the template installer
     with open(MAC_TEMPLATE, 'r') as f:

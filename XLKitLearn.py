@@ -4,7 +4,7 @@
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '13.01'
+ADDIN_VERSION = '13.02'
 
 # Note that the seventh line in this file should contain the version number
 # in the format ADDIN_VERSION = 'XX'
@@ -3313,6 +3313,9 @@ class TextCode:
             o +=                   'data = [encoder.decode(encoder.encode(i)[:8192]) for i in data]'                       +'\n'
             o +=                   ''                                                                                      +'\n'
             o +=                   '# Get the embeddings from OpenAI'                                                      +'\n'
+            o +=                   '#    (note that OpenAI can only generate embeddings for 2048 pieces of text at once.'  +'\n'
+            o +=                   '#     if your data has more than 2048 pieces of text, you will get a cryptic error;'   +'\n'
+            o +=                   '#     you need to chunk your data into smaller chunks and embed it again.)'            +'\n'
             o +=                   'client = openai.OpenAI(api_key=openai_key)'                                            +'\n'
             o +=                   'X = client.embeddings.create(input = data, model = "text-embedding-3-small")'          +'\n'
             o +=                   ''                                                                                      +'\n'
@@ -4462,13 +4465,19 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
         trunc_string_lengths = [len(encoder.encode(i)) for i in raw_data]
         
         try:
-            X = client.embeddings.create(input = raw_data, model = 'text-embedding-3-small')
+            # the OpenAI API can only handle 2048 tokens at a time; we'll split the data into chunks
+            XX = [raw_data[i:i + 2048] for i in range(0, len(raw_data), 2048)]
+            out_embeddings = []
+
+            for this_data in XX:
+                out_embeddings.extend(client.embeddings.create(input = this_data, model = 'text-embedding-3-small', timeout=25).data)
+
         except Exception as e:
             out_err.add_error('An error occurred while trying to get OpenAI embeddings. The specific error was\n\n' + str(e))
         
         X = np.hstack([   np.array([[i] for i in raw_string_lengths]),
                                     np.array([[i] for i in trunc_string_lengths]),
-                                    np.array([i.embedding for i in X.data])       ])
+                                    np.array([i.embedding for i in out_embeddings])       ])
         
         vocab = ['# tokens', '# tokens (truncated)'] + [f'd_{i+1}' for i in range(X.shape[1] - 2)]
 

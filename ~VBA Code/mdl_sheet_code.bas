@@ -283,17 +283,15 @@ after_rename:
         
         ' as such, we simply prepend the logging statement to the code_text
         
-        code_text = "import requests; " & _
-                        "exec('''try:\n    requests.post(url  = 'http://guetta.org/addin/run.php', " & _
-                                                      "data = {'run_id':'" & run_id() & "', 'version':'" & _
-                                                           addin_version() & "', 'email':'" & email_provided & "'," & _
-                                                           "'platform':'mac'}, timeout=10);\nexcept:\n    pass''');" & code_text
+        code_text = "import requests; exec('''try:\n    requests.post(url = 'https://telemetry.xlkitlearn.com/log.php', data = '{""request_type"":""run"", ""run_id"":""" & run_id() & """, ""version"":""" & addin_version() & """, ""email"":""" & email_provided & """, ""platform"":""mac""}');\nexcept:\n    pass''');" & code_text
     #else
         ' we're on windows; we can mercifully just do a curl
-        windows_curl "http://guetta.org/addin/run.php?run_id=" & run_id() & _
-                            "&version=" & addin_version() & _
-                            "&email=" & email_provided & _
-                            "&platform=windows"
+        make_request "post", "https://telemetry.xlkitlearn.com/log.php", false, _
+                        "request_type", "run", _
+                        "run_id", run_id(), _
+                        "version", addin_version(), _
+                        "email", email_provided, _
+                        "platform", "windows"
     #end if
     
     on error goto 0
@@ -489,12 +487,10 @@ public sub format_sheet()
         
     ' log a success
     on error resume next
-    #if mac then
-        runpython "import requests; requests.post(url = 'http://guetta.org/addin/success.php'," & _
-                        "data = {'run_id':'" & run_id() & "'}, timeout = 10)"
-    #else
-        windows_curl "http://guetta.org/addin/success.php?run_id=" & run_id()
-    #end if
+    
+    make_request "post", "https://telemetry.xlkitlearn.com/log.php", false, _
+                "request_type", "success", _
+                "run_id", run_id()
     
     ' clear the run_id
     wb_var "run_id", ""

@@ -909,13 +909,8 @@ class AddinErrorOutput(ExcelOutput):
             
             # Send the error to the server
             try:
-                run_id = self.excel_connector.wb_var('run_id')
-            except:
-                run_id = 'unknown'
-                
-            try:
                 requests.post(url     = 'https://telemetry.xlkitlearn.com/log.php',
-                              json    = {'request_type':'error', 'run_id':run_id , 'source':self._source ,
+                              json    = {'request_type':'error', 'run_id':self._run_id , 'source':self._source ,
                                                     'error_type':'caught_exception', 'error_text': str(self._get_output_array()), 'platform':os.name},
                               timeout = 5 ) 
             except:
@@ -976,6 +971,7 @@ class AddinInstance:
                 run_id = self._excel_connector.wb_var('run_id')
             except:
                 run_id = 'unknown'
+            self._out_err._run_id = run_id
             
             error_tracker = 'D'
 

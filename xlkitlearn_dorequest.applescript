@@ -5,7 +5,7 @@ on doRequest(input_params)
         set {request_type, request_args, target_url} to SplitString(input_params, "|")
 
         -- Define the curl command
-        set curl_command to "curl -X " & (quoted form of request_type) & " -H 'Content-Type:application/json' -d " & (quoted form of UnescapeString(request_args)) & " " & (quoted form of target_url) & " &>/dev/n$
+        set curl_command to "curl -X " & (quoted form of request_type) & " -H 'Content-Type:application/json' -d " & (quoted form of UnescapeString(request_args)) & " " & (quoted form of target_url) & " &>/dev/null & disown"
 
         --display dialog curl_command
 

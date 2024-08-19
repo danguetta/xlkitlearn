@@ -159,8 +159,8 @@ sub run_addin(f_name as string, this_status_cell as string)
     ' ensure an email was provided
     dim email_provided as string
     email_provided = range(cell_email).value
-    if trim(email_provided) = "" then
-        msgbox "please enter an email address on the addin tab to validate the add-in before it runs.", vbexclamation, "validation error"
+    if (trim(email_provided) = "") or (instr(1, email_provided, "@") = 0) or (instr(1, email_provided, ".") = 0) or (instr(1, email_provided, """") > 0) or (instr(1, email_provided, "|") > 0) then
+        msgbox "please enter a valid email address on the addin tab to validate the add-in before it runs.", vbexclamation, "validation error"
         format_sheet
         exit sub
     end if

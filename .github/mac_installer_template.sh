@@ -43,7 +43,7 @@ EOF
     curl -L -o ~/Desktop/XLKitLearn.xltm "https://github.com/danguetta/XLKitLearn/releases/latest/download/XLKitLearn.xltm"
 
     # Install the dorequest script; the script dir will already have been created by xlwings runpython install above
-    curl -L -o ~/Library/Application Scripts/com.microsoft.Excel/xlkitlearn_dorequest.applescript "https://github.com/danguetta/XLKitLearn/releases/latest/download/xlkitlearn_dorequest.applescript"
+    curl -L -o ~/"Library/Application Scripts/com.microsoft.Excel/xlkitlearn_dorequest.applescript" "https://github.com/danguetta/XLKitLearn/releases/latest/download/xlkitlearn_dorequest.applescript"
 
     printf "${GREEN}Successfully installed XLKitLearn!${NC}\n"
 else

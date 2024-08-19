@@ -75,8 +75,6 @@ if __name__ == '__main__':
         assert this_line.startswith('EARLIEST_ALLOWABLE_VERSION'), 'Eight line of the code file does not have the earliest allowable version'
         
         earliest_allowable_version = this_line.split("'")[1].strip()
-        assert earliest_allowable_version[-1] == "'", 'Earliest allowable version line in the wrong format'
-        earliest_allowable_version = earliest_allowable_version[:-1]
     
     with open('earliest_allowable_version', 'w') as f:
         f.write(earliest_allowable_version)

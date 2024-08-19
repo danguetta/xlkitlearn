@@ -12,7 +12,6 @@ private declare ptrsafe function web_pclose lib "libc.dylib" alias "pclose" (byv
 private declare ptrsafe function web_fread lib "libc.dylib" alias "fread" (byval outstr as string, byval size as longptr, byval items as longptr, byval stream as longptr) as long
 private declare ptrsafe function web_feof lib "libc.dylib" alias "feof" (byval file as longptr) as longptr
 
-
 public function make_request(request_type as string, url as string, capture_output as boolean, paramarray args() as variant) as string
     ' sends a request from vba in a cross/platform fashion. accepts the following
     ' arguments
@@ -32,7 +31,8 @@ public function make_request(request_type as string, url as string, capture_outp
     '     {name:value, name:value, ...}
     '
     ' none of the arguments passed to this function can include double quotes or the
-    ' | sign
+    ' | sign. if they do in the url, the function will fail. if they do in the arguments
+    ' they will be replaced by {pipe} and {quote} respectively
     '
     ' if capture_output = true, the return value will be a ">" followed by the
     ' response from the api call. if there is an error, the return value will be "-1"
@@ -72,6 +72,17 @@ public function make_request(request_type as string, url as string, capture_outp
     
         dim i as integer
         for i = lbound(args) to ubound(args) step 2
+            ' replace forbidden characters
+            dim j as integer
+            for j = i to i + 1
+                args(j) = replace(args(j), """", "{quote}")
+                args(j) = replace(args(j), "|", "{pipe}")
+                
+                args(j) = replace(args(j), "\", "\\")
+                args(j) = replace(args(j), chr(10), "\n")     ' lf (\n)
+                args(j) = replace(args(j), chr(13), "")       ' cr (\r)
+            next j
+        
             if instr(1, args(i), """") + instr(1, args(i), "|") + instr(1, args(i + 1), """") + instr(1, args(i + 1), "|") <> 0 then
                 exit function
             end if
@@ -186,13 +197,6 @@ public sub log_vba_error(byval content as string)
     #else
         platform = "windows"
     #end if
-    
-    ' remove forbiden characters from the contents
-    content = replace(content, """", "{quote}")
-    content = replace(content, "|", "{pipe}")
-    content = replace(content, "\", "\\")
-    content = replace(content, chr(10), "\n")      ' lf (\n)
-    content = replace(content, chr(13), "")        ' cr (\r)
     
     make_request "post", "https://telemetry.xlkitlearn.com/log.php", false, _
                     "request_type", "error", _

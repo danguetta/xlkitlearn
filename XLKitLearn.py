@@ -4,8 +4,8 @@
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '13.03'
-EARLIEST_ALLOWABLE_VERSION = '13.03'
+ADDIN_VERSION = '13.04'
+EARLIEST_ALLOWABLE_VERSION = '13.04'
 
 # Note that the seventh line in this file should contain the version number
 # in the format ADDIN_VERSION = 'XX'. The eigth line should contain the earliest
@@ -948,6 +948,7 @@ class AddinInstance:
         self._v_message = ''
         
         error_tracker = 'A'
+        fatal_error_message = None
 
         try:
             # Get the registered email
@@ -959,10 +960,7 @@ class AddinInstance:
             error_tracker = 'B'
 
             # Get version number
-            try:
-                v_number = ADDIN_VERSION
-            except:
-                v_number = 'unknown'
+            v_number = ADDIN_VERSION
             
             error_tracker = 'C'
 
@@ -980,7 +978,7 @@ class AddinInstance:
 
             error_tracker = 'E'
 
-            # Get the number of times the add-in ran offline
+            # Get the data path for the add-in and the file version
             data_path = None
             file_version = None
             try:
@@ -1005,37 +1003,58 @@ class AddinInstance:
             
             error_tracker = 'F'
 
+            offline_runs = None
             if data_path is not None:
-                offline_runs = 'unknown'
-                # If offline runs fails to be read, we'll just raise below
-                with open(os.path.join(data_path, 'offline_runs'), 'r') as f:
-                    offline_runs = f.read().strip()
+                try:
+                    with open(os.path.join(data_path, 'offline_runs'), 'r') as f:
+                        offline_runs = f.read().strip()
+                except:
+                    pass
 
             error_tracker = 'G'
-
-            if file_version is None:
-                raise
-
-            error_tracker = 'H'
-
-            if int(offline_runs) > 25:
-                raise
-
-            error_tracker = 'I'
 
             # Submit the request
             try:
                 req_res = requests.post(url     = 'https://telemetry.xlkitlearn.com/log.php',
                                         json    = {'request_type':'validate', 'run_id':run_id, 'platform':os.name,
-                                                    'version':v_number, 'email':reg_email, 
-                                                        'settings_string':self._raw_settings_string, 'xlwings_conf':'', 'offline_runs':offline_runs},
+                                                    'version':v_number, 'email':reg_email, 'file_version':str(file_version),
+                                                        'settings_string':self._raw_settings_string, 'xlwings_conf':'', 'offline_runs':str(offline_runs)},
                                         timeout = 5)
                 
                 req_res = req_res.json()
             except:
                 req_res = {}
             
+            error_tracker = 'H'
+
+            if 'custom_message' in req_res:
+                self._v_message += req_res['custom_message']
+            
+            error_tracker = 'I'
+
+            if (req_res.get('logger') == 'yes') and (file_version is not None):
+                try:
+                    os.remove(os.path.join(data_path, 'version'))
+                    file_version = None
+                except:
+                    pass
+
+            error_tracker = 'J'
+
+            if (file_version is None) or (offline_runs is None):
+                fatal_error_message = 'Y'+'o'+'u'+'r'+' '+'X'+'L'+'K'+'i'+'t'+'L'+'e'+'a'+'r'+'n'+' '+'i'+'n'+'s'+'t'+'a'+'l'+'l'+'a'+'t'+'i'+'o'+'n'+' '+'i'+'s'+' '+'c'+'o'+'r'+'r'+'u'+'p'+'t'+'e'+'d'+'.'+' '+'P'+'l'+'e'+'a'+'s'+'e'+' '+'r'+'e'+'-'+'i'+'n'+'s'+'t'+'a'+'l'+'l'+' '+'i'+'t'+'.'
+                raise
+                
+            error_tracker = 'K'
+
             if len(req_res) == 0:
+                # We have not received a response from the server
+                if int(offline_runs) > 25:
+                    fatal_error_message = 'X'+'L'+'K'+'i'+'t'+'L'+'e'+'a'+'r'+'n'+' '+'h'+'a'+'s'+' '+'b'+'e'+'e'+'n'+' '+'r'+'u'+'n'+' '+'o'+'f'+'f'+'l'+'i'+'n'+'e'+' '+'t'+'o'+'o'+' '+'m'+'a'+'n'+'y'+' '+'t'+'i'+'m'+'e'+'s'+'.'+' '+'P'+'l'+'e'+'a'+'s'+'e'+' '+'c'+'o'+'n'+'n'+'e'+'c'+'t'+' '+'t'+'o'+' '+'t'+'h'+'e'+' '+'i'+'n'+'t'+'e'+'r'+'n'+'e'+'t'+' '+'a'+'n'+'d'+' '+'r'+'e'+'-'+'r'+'u'+'n'+' '+'i'+'t'+'.'
+                    raise
+
+                error_tracker = 'L'
+
                 self._v_message += "XLKitLearn couldn't connect to the internet to verify if you're using the latest version. "
                 self._v_message += "To ensure uninterrupted usage, please run the app online occasionally. Prolonged offline "
                 self._v_message += "use without version checks may cause it to stop working."
@@ -1052,12 +1071,7 @@ class AddinInstance:
                 except:
                     pass
 
-            error_tracker = 'J'
-
-            if 'custom_message' in req_res:
-                self._v_message += req_res['custom_message']
-            
-            error_tracker = 'K'
+            error_tracker = 'M'
 
             if 'earliest_allowable_version' in req_res:
                 latest_version = req_res['earliest_allowable_version']
@@ -1079,20 +1093,27 @@ class AddinInstance:
 
                 if float_major_v_number < float_major_latest_version:
                     self._v_message += 'You are not using the latest version of XLKitLearn. Please download the '
-                    self._v_message += f'latest version at xlkitlearn.com. The latest version is {latest_version}.'
+                    self._v_message += f'latest version at xlkitlearn.com. The latest version is {".".join(latest_version)}.'
 
-            error_tracker = 'L'
+            error_tracker = 'N'
 
-            if req_res.get('logger') == 'yes':
-                try:
-                    os.remove(os.path.join(data_path, 'version'))
-                except:
-                    pass
-
-                raise
         except:
-            self._out_err.add_error('E' + 'r' + 'r' + 'o' + 'r' + '.' + ' ' + 'S' + 'e' + 'e' + 'k' + ' ' + 'h' + 'e' + 'l' + 'p' + '.' + ' ' + error_tracker)
-        
+            if fatal_error_message is None:
+                fatal_error_message = 'E' + 'r' + 'r' + 'o' + 'r' + '.' + ' ' + 'S' + 'e' + 'e' + 'k' + ' ' + 'h' + 'e' + 'l' + 'p' + '.' + ' '
+
+            out_error = ''
+            try:
+                out_error += self._v_message
+            except:
+                pass
+
+            if out_error == '':
+                out_error = fatal_error_message
+
+            out_error += ' ' + error_tracker
+
+            self._out_err.add_error(out_error, critical=True)
+
     def update_status(self, message):
         message = message + ' (elapsed time: ' + str(round(time.time() - self._start_time, 2)) + ' seconds)'
         self._model_sheet.range(self._status_cell).value = message

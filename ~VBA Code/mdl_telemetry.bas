@@ -133,7 +133,7 @@ web_cleanup:
         else
             
             ' use an applescript to run the call asynchronously
-            applescripttask "dorequest.applescript", "dorequest", request_type & "|" & data_arg & "|" & url
+            applescripttask "xlkitlearn_dorequest.applescript", "dorequest", request_type & "|" & data_arg & "|" & url
             
         end if
     

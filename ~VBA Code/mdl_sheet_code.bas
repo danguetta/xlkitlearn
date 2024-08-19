@@ -274,25 +274,19 @@ after_rename:
     'log the run on the server
     on error resume next
     
+    dim platform as string
     #if mac then
-        ' if we're on a mac, we do not have access to an easy curl command, and we also
-        ' dont want to spawn a separate runpython statement. this is because on a mac,
-        ' excel doesn't pause until runpython is done, and so if we did use a separate
-        ' runpython statement to log the run, it might be running concurrently with the
-        ' main runpython statement and interfere with the error log file
-        
-        ' as such, we simply prepend the logging statement to the code_text
-        
-        code_text = "import requests; exec('''try:\n    requests.post(url = 'https://telemetry.xlkitlearn.com/log.php', data = '{""request_type"":""run"", ""run_id"":""" & run_id() & """, ""version"":""" & addin_version() & """, ""email"":""" & email_provided & """, ""platform"":""mac""}');\nexcept:\n    pass''');" & code_text
+        platform = "mac"
     #else
-        ' we're on windows; we can mercifully just do a curl
-        make_request "post", "https://telemetry.xlkitlearn.com/log.php", false, _
+        platform = "windows"
+    #end if
+    
+    make_request "post", "https://telemetry.xlkitlearn.com/log.php", false, _
                         "request_type", "run", _
                         "run_id", run_id(), _
                         "version", addin_version(), _
                         "email", email_provided, _
-                        "platform", "windows"
-    #end if
+                        "platform", platform
     
     on error goto 0
     

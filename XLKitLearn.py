@@ -1036,9 +1036,9 @@ class AddinInstance:
                 req_res = {}
             
             if len(req_res) == 0:
-                self._v_message += 'The add-in was unable to connect to the internet to check whether you'
-                self._v_message += 'are using the latest version of XLKitLearn. The add-in will eventually'
-                self._v_message += "stop working if you don't eventually run it while online."
+                self._v_message += "XLKitLearn couldn’t connect to the internet to verify if you’re using the latest version. "
+                self._v_message += "To ensure uninterrupted usage, please run the app online occasionally. Prolonged offline "
+                self._v_message += "use without version checks may cause it to stop working."
                 
                 try:
                     with open(os.path.join(data_path, 'offline_runs'), 'w') as f:

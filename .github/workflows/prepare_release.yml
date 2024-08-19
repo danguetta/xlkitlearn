@@ -91,5 +91,7 @@ jobs:
           .github/Output/python-distro-${{ matrix.architecture }}.zip
           XLKitLearn_installer.sh
           version
+          earliest_allowable_version
+          xlkitlearn_dorequest.applescript
           XLKitLearn.xltm
           w2v_small.bin

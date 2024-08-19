@@ -23,6 +23,9 @@ REQ_FILE     = 'requirements.txt'
 # The name of the readme file
 README_FILE  = 'README.md'
 
+# The code file
+CODE_FILE    = 'XLKitLearn.py'
+
 # =================
 # =  Main Script  =
 # =================
@@ -59,6 +62,25 @@ if __name__ == '__main__':
     assert version == env['RELEASE_TAG'], 'Release tag is not equal to the #version'
     assert version == env['RELEASE_NAME'], 'Release name is to equal to the version'
         
+    # Write the version file - this will be used for the mac installer, and also will be pushed to the
+    # release for the server to check
+    with open('version', 'w') as f:
+        f.write(version)
+    
+    # Find the EARLIEST_ALLOWABLE_VERSION and write it to a file
+    with open(CODE_FILE, 'r') as f:
+        lines = f.readlines()
+        assert len(lines) > 8, 'Code file is too short'
+        this_line = lines[7]
+        assert this_line.startswith('EARLIEST_ALLOWABLE_VERSION'), 'Eight line of the code file does not have the earliest allowable version'
+        
+        earliest_allowable_version = this_line.split("'")[1]
+        assert earliest_allowable_version[-1] == "'", 'Earliest allowable version line in the wrong format'
+        earliest_allowable_version = earliest_allowable_version[:-1]
+    
+    with open('earliest_allowable_version', 'w') as f:
+        f.write(earliest_allowable_version)
+        
     # ---------------------------------------
     # -   Create a requirement run string   -
     # ---------------------------------------
@@ -83,6 +105,10 @@ if __name__ == '__main__':
     with open(os.path.join(env['pythonLocation'], 'data', 'version'), 'w') as f:
         f.write(env['RELEASE_TAG'] + '\n')
     
+    # Prepare an empty file for the offline runs
+    with open(os.path.join(env['pythonLocation'], 'data', 'offline_runs'), 'w') as f:
+        f.write('0\n')
+
     # Replace the version number in installer.iss
     with open(ISS_FILE, 'r') as f:
         iss_file = f.read()
@@ -95,9 +121,7 @@ if __name__ == '__main__':
     # -  Prep Mac installer  -
     # ------------------------
     
-    # Create a file with the version number for the release
-    with open('version', 'w') as f:
-        f.write(version)
+    # Version number file was saved above 
 
     # Load the template installer
     with open(MAC_TEMPLATE, 'r') as f:

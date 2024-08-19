@@ -36,10 +36,15 @@ EOF
     printf "${YELLOW}Copying Data${NC}\n"
     mkdir -p "$INSTALL_DIR"/data
     echo {{version_placeholder}} > "$INSTALL_DIR"/data/version
+    echo "0" > "$INSTALL_DIR"/data/offline_runs
     printf "${YELLOW}Compiling packages${NC}\n"
     "$INSTALL_DIR"/bin/python -c "python_command_placeholder"
     printf "${YELLOW}Downloading add-in Excel${NC}\n"
     curl -L -o ~/Desktop/XLKitLearn.xltm "https://github.com/danguetta/XLKitLearn/releases/latest/download/XLKitLearn.xltm"
+
+    # Install the dorequest script; the script dir will already have been created by xlwings runpython install above
+    curl -L -o ~/Library/Application Scripts/com.microsoft.Excel/xlkitlearn_dorequest.applescript "https://github.com/danguetta/XLKitLearn/releases/latest/download/xlkitlearn_dorequest.applescript"
+
     printf "${GREEN}Successfully installed XLKitLearn!${NC}\n"
 else
     printf "${RED}I need a little help to complete the installation. Please type the words 'conda deactivate' (without the quotes) below and press enter. Then, re-run exactly the same command you just ran.${NC}\n"

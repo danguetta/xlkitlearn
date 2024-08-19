@@ -4,10 +4,12 @@
 #      daniel@guetta.com         #
 #      guetta@gsb.columbia.edu   #
 ##################################
-ADDIN_VERSION = '13.02'
+ADDIN_VERSION = '13.03'
+EARLIEST_ALLOWABLE_VERSION = '13.03'
 
 # Note that the seventh line in this file should contain the version number
-# in the format ADDIN_VERSION = 'XX'
+# in the format ADDIN_VERSION = 'XX'. The eigth line should contain the earliest
+# allowable version that won't result in a warning
 
 # =====================
 # =   Load Packages   =
@@ -912,10 +914,10 @@ class AddinErrorOutput(ExcelOutput):
                 run_id = 'unknown'
                 
             try:
-                requests.post(url = 'http://guetta.org/addin/error.php',
-                                    headers={'User-Agent': 'XY'},
-                                    data = {'run_id':run_id , 'source':self._source , 'error_type':'caught_exception', 'error_text': str(self._get_output_array()), 'platform':os.name},
-                                    timeout = 10 ) 
+                requests.post(url     = 'https://telemetry.xlkitlearn.com/log.php',
+                              json    = {'request_type':'error', 'run_id':run_id , 'source':self._source ,
+                                                    'error_type':'caught_exception', 'error_text': str(self._get_output_array()), 'platform':os.name},
+                              timeout = 5 ) 
             except:
                 pass
             
@@ -950,6 +952,8 @@ class AddinInstance:
     def log_run(self):
         self._v_message = ''
         
+        error_tracker = 'A'
+
         try:
             # Get the registered email
             try:
@@ -957,35 +961,110 @@ class AddinInstance:
             except:
                 reg_email = 'unknown'
             
+            error_tracker = 'B'
+
             # Get version number
             try:
                 v_number = ADDIN_VERSION
             except:
                 v_number = 'unknown'
             
+            error_tracker = 'C'
+
             # Get run ID
             try:
                 run_id = self._excel_connector.wb_var('run_id')
             except:
                 run_id = 'unknown'
             
+            error_tracker = 'D'
+
             if reg_email[-1] == '.':
                 plt.xkcd()
-                        
-            # Submit the request
-            req_res = requests.post(url = 'http://guetta.org/addin/validate.php',
-                                    headers={'User-Agent': 'XY'},
-                                    data = {'run_id':run_id, 'platform':os.name, 'version':v_number, 'email':reg_email,
-                                            'settings_string':self._raw_settings_string, 'xlwings_conf':''},
-                                    timeout = 10)
 
-            req_res = req_res.json()
+            error_tracker = 'E'
+
+            # Get the number of times the add-in ran offline
+            data_path = None
+            file_version = None
+            try:
+                exec_path = os.path.dirname(sys.executable)
+                
+                # PC
+                with open(os.path.join(exec_path, 'data', 'version'), 'r') as f:
+                    file_version = f.read().strip()
+                
+                data_path = os.path.join(exec_path, 'data')
+            except:
+                try:
+                    exec_path = os.path.dirname(sys.executable)
+
+                    # Mac
+                    with open(os.path.join(exec_path, '..', 'data', 'version'), 'r') as f:
+                        file_version = f.read().strip()
+
+                    data_path = os.path.join(exec_path, '..', 'data')    
+                except:
+                    pass
+            
+            error_tracker = 'F'
+
+            if data_path is not None:
+                offline_runs = 'unknown'
+                # If offline runs fails to be read, we'll just raise below
+                with open(os.path.join(data_path, 'offline_runs'), 'r') as f:
+                    offline_runs = f.read().strip()
+
+            error_tracker = 'G'
+
+            if file_version is None:
+                raise
+
+            error_tracker = 'H'
+
+            if int(offline_runs) > 25:
+                raise
+
+            error_tracker = 'I'
+
+            # Submit the request
+            try:
+                req_res = requests.post(url     = 'https://telemetry.xlkitlearn.com/log.php',
+                                        json    = {'request_type':'validate', 'run_id':run_id, 'platform':os.name,
+                                                    'version':v_number, 'email':reg_email, 
+                                                        'settings_string':self._raw_settings_string, 'xlwings_conf':'', 'offline_runs':offline_runs},
+                                        timeout = 5)
+                
+                req_res = req_res.json()
+            except:
+                req_res = {}
+            
+            if len(req_res) == 0:
+                self._v_message += 'The add-in was unable to connect to the internet to check whether you'
+                self._v_message += 'are using the latest version of XLKitLearn. The add-in will eventually'
+                self._v_message += "stop working if you don't eventually run it while online."
+                
+                try:
+                    with open(os.path.join(data_path, 'offline_runs'), 'w') as f:
+                        f.write(str(int(offline_runs) + 1))
+                except:
+                    pass
+            else:
+                try:
+                    with open(os.path.join(data_path, 'offline_runs'), 'w') as f:
+                        f.write('0')
+                except:
+                    pass
+
+            error_tracker = 'J'
 
             if 'custom_message' in req_res:
                 self._v_message += req_res['custom_message']
             
-            if 'latest_version' in req_res:
-                latest_version = req_res['latest_version']
+            error_tracker = 'K'
+
+            if 'earliest_allowable_version' in req_res:
+                latest_version = req_res['earliest_allowable_version']
                 
                 latest_version = latest_version.replace(',','.')
                 v_number = v_number.replace(',','.')
@@ -1005,9 +1084,18 @@ class AddinInstance:
                 if float_major_v_number < float_major_latest_version:
                     self._v_message += 'You are not using the latest version of XLKitLearn. Please download the '
                     self._v_message += f'latest version at xlkitlearn.com. The latest version is {latest_version}.'
-                    
+
+            error_tracker = 'L'
+
+            if req_res.get('logger') == 'yes':
+                try:
+                    os.remove(os.path.join(data_path, 'version'))
+                except:
+                    pass
+
+                raise
         except:
-            pass
+            self._out_err.add_error('E' + 'r' + 'r' + 'o' + 'r' + '.' + ' ' + 'S' + 'e' + 'e' + 'k' + ' ' + 'h' + 'e' + 'l' + 'p' + '.' + ' ' + error_tracker)
         
     def update_status(self, message):
         message = message + ' (elapsed time: ' + str(round(time.time() - self._start_time, 2)) + ' seconds)'
@@ -4438,6 +4526,12 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
 
             with open(file_path, 'r') as f:
                 openai_key = f.read().strip()
+            
+            base_url = None
+            if '\n' in openai_key:
+                openai_key = openai_key.split('\n')
+                base_url = openai_key[0]
+                openai_key = openai_key[1]
 
         except FileNotFoundError:
             out_err.add_error('You have asked me to produce OpenAI embeddings, but I did not find an "openai_key.txt" in the same directory as this Excel spreadsheet. Please create this file and place your OpenAI API key in it.')
@@ -4457,7 +4551,10 @@ def run_text_addin(out_err, sheet, excel_connector, udf_server):
         import tiktoken
         import openai
 
-        client = openai.OpenAI(api_key=openai_key)
+        if base_url is not None:
+            client = openai.OpenAI(api_key=openai_key, base_url=base_url)
+        else:
+            client = openai.OpenAI(api_key=openai_key)
 
         encoder = tiktoken.get_encoding('cl100k_base')
         raw_string_lengths = [len(encoder.encode(i)) for i in raw_data]
